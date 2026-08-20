@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 
 import { buildActorInstances } from '@/lib/team-studio/actor-instances'
 import { clamp, currentAge, pulseFor, pulseLabel, shortAge, taskStatusLabel } from '@/lib/team-studio/activity-score'
@@ -14,8 +14,21 @@ import {
   TEAM_DAY_NAMES,
   TEAM_ZONES,
 } from '@/lib/team-studio/demo-data'
+import {
+  arrangeStudioLayout,
+  buildStudioLayoutScene,
+  createStudioLayout,
+  normalizeStudioLayout,
+  placeStudioZone,
+  removeStudioZone,
+  resizeStudioLayout,
+  STUDIO_LAYOUT_STORAGE_KEY,
+  type StudioLayoutSlot,
+} from '@/lib/team-studio/studio-layout'
+import { applyBlockedDoorPlacement, diffActorTransits, type ActorTransit } from '@/lib/team-studio/flow-motion'
 import type { ActorInstance, MemberPulse, TeamMember, TeamTask, TeamZone } from '@/lib/team-studio/types'
 
+import { StudioLayoutControls } from './StudioLayoutControls'
 import styles from './TeamStudio.module.css'
 
 type DrawerState =
@@ -25,8 +38,13 @@ type DrawerState =
   | { type: 'calendar'; memberId: string }
   | null
 
+type BirdAnimation = 'idle' | 'walk' | 'run' | 'work' | 'sit' | 'sleep' | 'fly'
+
 const UPDATE_ORDER = ['frontend', 'story', 'visual', 'backend', 'qa', 'ops', 'release']
 const SLEEP_THRESHOLDS = [30, 45, 60, 90]
+const DEFAULT_ZONE_ORDER = TEAM_ZONES.map((zone) => zone.id)
+const WORKFLOW_ZONE_ORDER = ['story', 'visual', 'frontend', 'backend', 'qa', 'release', 'ops', 'lounge', 'nap']
+const formatCount = (count: number, singular: string, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`
 
 const cloneMembers = () => INITIAL_TEAM_MEMBERS.map((member) => ({
   ...member,
@@ -35,6 +53,15 @@ const cloneMembers = () => INITIAL_TEAM_MEMBERS.map((member) => ({
 }))
 const cloneTasks = () => INITIAL_TEAM_TASKS.map((task) => ({ ...task }))
 const cloneFeed = () => INITIAL_TEAM_FEED.map((event) => ({ ...event }))
+const loadLayout = () => {
+  if (typeof window === 'undefined') return createStudioLayout(DEFAULT_ZONE_ORDER)
+  try {
+    const savedLayout = window.localStorage.getItem(STUDIO_LAYOUT_STORAGE_KEY)
+    return normalizeStudioLayout(savedLayout ? JSON.parse(savedLayout) : null, DEFAULT_ZONE_ORDER)
+  } catch {
+    return createStudioLayout(DEFAULT_ZONE_ORDER)
+  }
+}
 
 export function TeamStudio() {
   const [members, setMembers] = useState(cloneMembers)
@@ -44,8 +71,24 @@ export function TeamStudio() {
   const [sleepThreshold, setSleepThreshold] = useState(45)
   const [updateIndex, setUpdateIndex] = useState(0)
   const [drawer, setDrawer] = useState<DrawerState>(null)
-  const [clock, setClock] = useState({ time: '--:--', date: '首尔工作室' })
+  const [clock, setClock] = useState({ time: '--:--', date: 'Seoul Studio' })
+  const [layout, setLayout] = useState(loadLayout)
+  const [layoutEditing, setLayoutEditing] = useState(false)
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
+  const [actorTransits, setActorTransits] = useState<Map<string, ActorTransit>>(() => new Map())
   const studioRef = useRef<HTMLElement>(null)
+  const previousActorsRef = useRef<Map<string, ActorInstance>>(new Map())
+  const previousLayoutKeyRef = useRef('')
+
+  const layoutScene = useMemo(() => buildStudioLayoutScene(layout, TEAM_ZONES), [layout])
+  const unplacedZones = useMemo(() => layout.unplacedZoneIds.flatMap((zoneId) => {
+    const zone = TEAM_ZONES.find((item) => item.id === zoneId)
+    return zone ? [zone] : []
+  }), [layout.unplacedZoneIds])
+  const zoneStats = useMemo(() => Object.fromEntries(TEAM_ZONES.map((zone) => [zone.id, {
+    members: members.filter((member) => member.assignedZone === zone.id).length,
+    tasks: tasks.filter((task) => task.zoneId === zone.id && task.status !== 'done').length,
+  }])), [members, tasks])
 
   const pulses = useMemo(() => new Map(members.map((member) => [
     member.id,
@@ -55,23 +98,61 @@ export function TeamStudio() {
   const actors = useMemo(() => buildActorInstances(
     members,
     tasks,
-    TEAM_ZONES,
+    layoutScene.zones,
     offsetMinutes,
     sleepThreshold,
-  ), [members, tasks, offsetMinutes, sleepThreshold])
+  ), [members, tasks, layoutScene.zones, offsetMinutes, sleepThreshold])
+  const displayActors = useMemo(() => applyBlockedDoorPlacement(
+    actors,
+    layoutScene.zones,
+    WORKFLOW_ZONE_ORDER,
+  ), [actors, layoutScene.zones])
+  const layoutKey = `${layout.rows}x${layout.columns}:${layout.slots.join('|')}`
 
   const sleepingCount = members.filter((member) => pulses.get(member.id)?.sleeping).length
   const onlineCount = members.length - sleepingCount
-  const extraActors = Math.max(0, actors.length - members.length)
+  const actorCountByMember = useMemo(() => {
+    const counts = new Map<string, number>()
+    displayActors.forEach((actor) => counts.set(actor.member.id, (counts.get(actor.member.id) ?? 0) + 1))
+    return counts
+  }, [displayActors])
+  const mappedMemberCount = actorCountByMember.size
+  const extraActors = Math.max(0, actors.length - mappedMemberCount)
+  const hiddenMemberCount = members.length - mappedMemberCount
+
+  useLayoutEffect(() => {
+    const nextActors = new Map(displayActors.map((actor) => [actor.id, actor]))
+    if (previousLayoutKeyRef.current !== layoutKey || previousActorsRef.current.size === 0) {
+      previousLayoutKeyRef.current = layoutKey
+      previousActorsRef.current = nextActors
+      setActorTransits((current) => current.size ? new Map() : current)
+      return
+    }
+
+    const changedTransits = diffActorTransits(
+      previousActorsRef.current,
+      displayActors,
+      WORKFLOW_ZONE_ORDER,
+      layoutScene.height,
+    )
+    if (changedTransits.length) {
+      setActorTransits((current) => {
+        const next = new Map(current)
+        changedTransits.forEach((transit) => next.set(transit.actorId, transit))
+        return next
+      })
+    }
+    previousActorsRef.current = nextActors
+  }, [displayActors, layoutKey, layoutScene.height])
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date()
       setClock({
-        time: new Intl.DateTimeFormat('zh-CN', {
+        time: new Intl.DateTimeFormat('en-GB', {
           timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
         }).format(now),
-        date: new Intl.DateTimeFormat('zh-CN', {
+        date: new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short',
         }).format(now),
       })
@@ -91,13 +172,21 @@ export function TeamStudio() {
     }
   }, [drawer])
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STUDIO_LAYOUT_STORAGE_KEY, JSON.stringify(layout))
+    } catch {
+      // The editor still works when storage is unavailable; only persistence is skipped.
+    }
+  }, [layout])
+
   function advanceDemo(minutes: number) {
     const nextOffset = offsetMinutes + minutes
     setOffsetMinutes(nextOffset)
     setFeed((events) => [{
       id: `advance-${nextOffset}`,
       minutes: -nextOffset,
-      text: `演示时间推进 ${minutes} 分钟，系统重新计算忙碌、摸鱼与休眠位置。`,
+      text: `Advanced demo time by ${minutes} minutes. Busy, slack, and sleep positions were recalculated.`,
     }, ...events])
   }
 
@@ -128,9 +217,69 @@ export function TeamStudio() {
     setFeed((events) => [{
       id: `update-${updateIndex}-${memberId}`,
       minutes: -offsetMinutes,
-      text: `${member.name} 产生新更新${candidate ? `，${candidate.short} 推进至 ${clamp(candidate.progress + 4)}%` : ''}。`,
+      text: `${member.name} posted an update${candidate ? `; ${candidate.short} advanced to ${clamp(candidate.progress + 4)}%` : ''}.`,
     }, ...events])
     setUpdateIndex((value) => value + 1)
+  }
+
+  function simulateForwardTransit() {
+    const taskId = 't-story-1'
+    const candidate = tasks.find((task) => task.id === taskId)
+    if (!candidate) return
+    const currentIndex = WORKFLOW_ZONE_ORDER.indexOf(candidate.zoneId)
+    const nextZoneId = WORKFLOW_ZONE_ORDER[Math.min(currentIndex + 1, WORKFLOW_ZONE_ORDER.indexOf('release'))]
+    if (!nextZoneId || nextZoneId === candidate.zoneId) {
+      setFeed((events) => [{ id: `flow-end-${Date.now()}`, minutes: -offsetMinutes, text: `${candidate.short} is already at the end of the current workflow.` }, ...events])
+      return
+    }
+    setTasks((items) => items.map((task) => task.id === taskId ? {
+      ...task,
+      zoneId: nextZoneId,
+      status: nextZoneId === 'release' ? 'reviewing' : 'working',
+      lastUpdateMinutes: -offsetMinutes,
+      progress: clamp(task.progress + 3),
+    } : task))
+    setFeed((events) => [{
+      id: `flow-forward-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: `${candidate.short} moved from ${TEAM_ZONES.find((zone) => zone.id === candidate.zoneId)?.name} to ${TEAM_ZONES.find((zone) => zone.id === nextZoneId)?.name}; only its actor entered transit.`,
+    }, ...events])
+  }
+
+  function simulateRollbackTransit() {
+    const taskId = 't-qa-2'
+    const candidate = tasks.find((task) => task.id === taskId)
+    if (!candidate) return
+    const currentIndex = WORKFLOW_ZONE_ORDER.indexOf(candidate.zoneId)
+    const previousZoneId = WORKFLOW_ZONE_ORDER[Math.max(0, currentIndex - 1)]
+    if (!previousZoneId || previousZoneId === candidate.zoneId) return
+    setTasks((items) => items.map((task) => task.id === taskId ? {
+      ...task,
+      zoneId: previousZoneId,
+      status: 'working',
+      lastUpdateMinutes: -offsetMinutes,
+      note: 'Returned from review for rework',
+    } : task))
+    setFeed((events) => [{
+      id: `flow-rollback-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: `${candidate.short} was returned from review and is moving back to ${TEAM_ZONES.find((zone) => zone.id === previousZoneId)?.name} with the slower red rollback animation.`,
+    }, ...events])
+  }
+
+  function toggleBlockedDemo() {
+    const taskId = 't-release-1'
+    const candidate = tasks.find((task) => task.id === taskId)
+    if (!candidate) return
+    const nextStatus = candidate.status === 'blocked' ? 'waiting' : 'blocked'
+    setTasks((items) => items.map((task) => task.id === taskId ? { ...task, status: nextStatus } : task))
+    setFeed((events) => [{
+      id: `flow-block-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: nextStatus === 'blocked'
+        ? `${candidate.short} entered BLOCK: stop at the doorway, face the next zone, and do not translate.`
+        : `${candidate.short} cleared BLOCK and may enter the target seat once.`,
+    }, ...events])
   }
 
   function cycleSleepThreshold() {
@@ -139,11 +288,67 @@ export function TeamStudio() {
     setFeed((events) => [{
       id: `threshold-${next}-${offsetMinutes}`,
       minutes: -offsetMinutes,
-      text: `休眠阈值调整为 ${next} 分钟。`,
+      text: `Sleep threshold changed to ${next} minutes.`,
     }, ...events])
   }
 
+  function changeLayoutGrid(rows: number, columns: number) {
+    setLayout((current) => resizeStudioLayout(current, rows, columns))
+    setSelectedZoneId(null)
+    setFeed((events) => [{
+      id: `layout-${rows}-${columns}-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: `Office changed to ${rows} rows × ${columns} columns. Overflow rooms moved to the unplaced tray.`,
+    }, ...events])
+  }
+
+  function selectUnplacedZone(zoneId: string) {
+    setSelectedZoneId((current) => current === zoneId ? null : zoneId)
+  }
+
+  function selectLayoutSlot(slot: StudioLayoutSlot) {
+    if (!layoutEditing) {
+      if (slot.zoneId) setDrawer({ type: 'zone', id: slot.zoneId })
+      return
+    }
+    if (!selectedZoneId) {
+      setSelectedZoneId(slot.zoneId)
+      return
+    }
+    setLayout((current) => placeStudioZone(current, selectedZoneId, slot.index))
+    setFeed((events) => [{
+      id: `layout-place-${selectedZoneId}-${slot.index}-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: `${TEAM_ZONES.find((zone) => zone.id === selectedZoneId)?.name ?? 'Room'} moved to workflow slot ${slot.index + 1}.`,
+    }, ...events])
+    setSelectedZoneId(null)
+  }
+
+  function arrangeByWorkflow() {
+    setLayout((current) => arrangeStudioLayout(current, WORKFLOW_ZONE_ORDER))
+    setSelectedZoneId(null)
+    setFeed((events) => [{
+      id: `layout-flow-${Date.now()}`,
+      minutes: -offsetMinutes,
+      text: 'The office was reordered by the Product → Visual → Frontend → Data → QA → Release delivery flow.',
+    }, ...events])
+  }
+
+  function removeSelectedZone() {
+    if (!selectedZoneId) return
+    setLayout((current) => removeStudioZone(current, selectedZoneId))
+    setSelectedZoneId(null)
+  }
+
+  function resetLayout() {
+    setLayout(createStudioLayout(DEFAULT_ZONE_ORDER))
+    setSelectedZoneId(null)
+  }
+
   function resetDemo() {
+    previousActorsRef.current = new Map()
+    previousLayoutKeyRef.current = ''
+    setActorTransits(new Map())
     setMembers(cloneMembers())
     setTasks(cloneTasks())
     setFeed(cloneFeed())
@@ -164,73 +369,116 @@ export function TeamStudio() {
           <span className={styles.brandMark}>NL</span>
           <span className={styles.brandCopy}><b>NESTLINKER</b><small>Footprints Studio</small></span>
         </a>
-        <nav className={styles.navPills} aria-label="团队工作室导航">
-          <button type="button" className={styles.active} onClick={scrollToStudio}>工作室地图</button>
+        <nav className={styles.navPills} aria-label="Team Studio navigation">
+          <button type="button" className={styles.active} onClick={scrollToStudio}>Studio map</button>
           <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>KPI</button>
-          <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>团队日历</button>
+          <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Team calendar</button>
         </nav>
         <div className={styles.topActions}>
-          <button type="button" onClick={() => advanceDemo(15)}>推进 15 分钟</button>
-          <button type="button" onClick={cycleSleepThreshold}>休眠阈值 {sleepThreshold}m</button>
-          <button type="button" className={styles.primaryAction} onClick={triggerDemoUpdate}>模拟新更新</button>
+          <button type="button" onClick={() => advanceDemo(15)}>Advance 15 minutes</button>
+          <button type="button" onClick={cycleSleepThreshold}>Sleep threshold {sleepThreshold}m</button>
+          <button type="button" className={styles.primaryAction} onClick={triggerDemoUpdate}>Simulate update</button>
         </div>
       </header>
 
       <div className={styles.shell}>
         <section className={styles.hero}>
           <div>
-            <span className={styles.eyebrow}>LIVE TEAM OPERATING SCENE · V2</span>
-            <h1>谁在做什么，<em>一眼就知道。</em></h1>
-            <p>固定负责人留在工位牌，当前执行者跟着任务移动；并行任务生成分身，长时间没有更新的成员会真的去休眠区睡觉。</p>
+            <span className={styles.eyebrow}>ADAPTIVE TEAM OPERATING SCENE · V3</span>
+            <h1>See who is doing what, <em>at a glance.</em></h1>
+            <p>Choose a grid and arrange rooms around your delivery flow. Tasks, KPIs, and member states stay bound to their logical departments while the map remains fully configurable.</p>
           </div>
           <div className={styles.clockCard}>
-            <small>SEOUL STUDIO</small><strong>{clock.time}</strong><span>{clock.date} · 演示时间 +{offsetMinutes}m</span>
+            <small>SEOUL STUDIO</small><strong>{clock.time}</strong><span>{clock.date} · demo +{offsetMinutes}m</span>
           </div>
         </section>
 
-        <section className={styles.projectStrip} aria-label="当前项目状态">
+        <section className={styles.projectStrip} aria-label="Current project status">
           <ProjectCell label="CURRENT PROJECT" value="NestLinker Team Studio · Open Source Demo" />
           <ProjectCell label="BRANCH" value="main · demo-events" />
           <ProjectCell label="COMMIT" value="local-demo" />
           <ProjectCell label="DRAFT PR" value="#15 · Review pending" />
           <ProjectCell label="MEMBERS / ACTORS" value={`${members.length} / ${actors.length}`} />
-          <ProjectCell label="STUDIO STATUS" value={`${onlineCount} 在线 · ${sleepingCount} 休眠`} live />
+          <ProjectCell label="STUDIO STATUS" value={`${onlineCount} online · ${sleepingCount} asleep`} live />
         </section>
 
         <section className={styles.dashboard} ref={studioRef} id="studio">
           <article className={styles.studioCard}>
             <header className={styles.studioHead}>
-              <div><h2>巢链 2D 工作室地图</h2><p>区域头像是岗位负责人；地图角色是当前实际执行者。点击任何角色或区域查看详情。</p></div>
-              <div className={styles.legend} aria-label="角色状态图例">
-                <span data-level="turbo"><i />高速更新</span>
-                <span data-level="steady"><i />正常推进</span>
-                <span data-level="slack"><i />摸鱼偏高</span>
-                <span data-level="waiting"><i />等待或阻塞</span>
-                <span data-level="sleep"><i />休眠</span>
+              <div><h2>NestLinker Configurable 2D Studio</h2><p>Choose a grid and reorder rooms. Outside edit mode, click a character or room for details.</p></div>
+              <div className={styles.legend} aria-label="Character status legend">
+                <span data-level="turbo"><i />Rapid updates</span>
+                <span data-level="steady"><i />Steady progress</span>
+                <span data-level="slack"><i />Low activity</span>
+                <span data-level="waiting"><i />Waiting or blocked</span>
+                <span data-level="sleep"><i />Asleep</span>
               </div>
             </header>
+            <StudioLayoutControls
+              layout={layout}
+              unplacedZones={unplacedZones}
+              zoneStats={zoneStats}
+              editing={layoutEditing}
+              selectedZoneId={selectedZoneId}
+              onToggleEditing={() => {
+                setLayoutEditing((current) => !current)
+                setSelectedZoneId(null)
+              }}
+              onGridChange={changeLayoutGrid}
+              onSelectUnplacedZone={selectUnplacedZone}
+              onArrangeWorkflow={arrangeByWorkflow}
+              onReset={resetLayout}
+              onRemoveSelected={removeSelectedZone}
+            />
             <div className={styles.mapTools}>
-              <b>实际成员 {members.length} · 地图角色 {actors.length} · 并行分身 +{extraActors} · 休眠 {sleepingCount}</b>
-              <button type="button" onClick={resetDemo}>重置演示</button>
-              <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>成员进度</button>
-              <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>团队日历</button>
+              <b>Layout {layout.rows}×{layout.columns} · {layoutScene.zones.length} placed · {unplacedZones.length} unplaced · {actors.length} actors · +{extraActors} clones{hiddenMemberCount ? ` · ${hiddenMemberCount} members off-map` : ''}</b>
+              <button type="button" className={styles.flowAction} data-kind="forward" onClick={simulateForwardTransit}>Trigger forward move</button>
+              <button type="button" className={styles.flowAction} data-kind="rollback" onClick={simulateRollbackTransit}>Trigger review rollback</button>
+              <button type="button" className={styles.flowAction} data-kind="block" onClick={toggleBlockedDemo}>Toggle BLOCK</button>
+              <button type="button" onClick={resetDemo}>Reset demo</button>
+              <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>Member progress</button>
+              <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Team calendar</button>
             </div>
             <div className={styles.mapScroll}>
-              <div className={styles.officeMap}>
+              <div
+                className={styles.officeMap}
+                data-layout-editing={layoutEditing}
+                style={{ '--map-width': `${layoutScene.width}px`, '--map-height': `${layoutScene.height}px` } as CSSProperties}
+              >
                 <div className={styles.corridor}><span>SHARED ROUTE · TASK HANDOFF · REVIEW FLOW</span></div>
-                <div className={styles.officeSign}>{actors.length} 个任务角色 · {sleepThreshold}m 无更新休眠</div>
-                {TEAM_ZONES.map((zone) => (
-                  <WorkZone
-                    key={zone.id}
-                    zone={zone}
-                    members={members}
-                    tasks={tasks}
-                    actors={actors}
-                    onOpen={() => setDrawer({ type: 'zone', id: zone.id })}
+                <div className={styles.officeSign}>{layout.rows} × {layout.columns} WORKFLOW · {actors.length} TASK ACTORS</div>
+                {layoutScene.slots.map((slot) => {
+                  const zone = slot.zoneId ? layoutScene.zones.find((item) => item.id === slot.zoneId) : undefined
+                  return zone ? (
+                    <WorkZone
+                      key={zone.id}
+                      slot={slot}
+                      zone={zone}
+                      members={members}
+                      tasks={tasks}
+                      actors={displayActors}
+                      editing={layoutEditing}
+                      selected={selectedZoneId === zone.id}
+                      onSelect={() => selectLayoutSlot(slot)}
+                    />
+                  ) : (
+                    <EmptyLayoutSlot key={`empty-${slot.index}`} slot={slot} editing={layoutEditing} selectedZoneId={selectedZoneId} onSelect={() => selectLayoutSlot(slot)} />
+                  )
+                })}
+                {displayActors.map((actor) => (
+                  <AgentActor
+                    key={actor.id}
+                    actor={actor}
+                    zones={layoutScene.zones}
+                    transit={actorTransits.get(actor.id)}
+                    onTransitEnd={() => setActorTransits((current) => {
+                      if (!current.has(actor.id)) return current
+                      const next = new Map(current)
+                      next.delete(actor.id)
+                      return next
+                    })}
+                    onOpen={() => setDrawer({ type: 'member', id: actor.member.id })}
                   />
-                ))}
-                {actors.map((actor) => (
-                  <AgentActor key={actor.id} actor={actor} onOpen={() => setDrawer({ type: 'member', id: actor.member.id })} />
                 ))}
               </div>
             </div>
@@ -238,16 +486,17 @@ export function TeamStudio() {
 
           <aside className={styles.sidebar}>
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>团队脉冲</h3><small>按最近更新与事件密度排序</small></div><button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>全部 KPI</button></header>
+              <header className={styles.sideHead}><div><h3>Team pulse</h3><small>Sorted by recency and event density</small></div><button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>All KPIs</button></header>
               <PulseSummary pulses={[...pulses.values()]} />
               <div className={styles.pulseList}>
                 {[...members].sort((a, b) => (pulses.get(a.id)?.age ?? 0) - (pulses.get(b.id)?.age ?? 0)).map((member) => {
                   const pulse = pulses.get(member.id)!
+                  const memberActorCount = actorCountByMember.get(member.id) ?? 0
                   return (
                     <button type="button" className={styles.pulseRow} key={member.id} onClick={() => setDrawer({ type: 'member', id: member.id })}>
                       <PixelBird bird={member.bird} size={48} />
-                      <span className={styles.pulseCopy}><b>{member.name}</b><small>{shortAge(pulse.age)}更新 · {Math.max(1, pulse.activeTasks.length)} 个地图角色</small></span>
-                      <span className={styles.pulseScore}><b>{pulse.waiting ? 'WAIT' : pulse.sleeping ? 'SLEEP' : pulse.busyScore}</b><small>{pulse.slackScore === null ? '摸鱼不计' : `摸鱼 ${pulse.slackScore}`}</small></span>
+                      <span className={styles.pulseCopy}><b>{member.name}</b><small>Updated {shortAge(pulse.age)} · {formatCount(memberActorCount, 'map actor')}</small></span>
+                      <span className={styles.pulseScore}><b>{pulse.waiting ? 'WAIT' : pulse.sleeping ? 'SLEEP' : pulse.busyScore}</b><small>{pulse.slackScore === null ? 'slack excluded' : `slack ${pulse.slackScore}`}</small></span>
                     </button>
                   )
                 })}
@@ -255,17 +504,17 @@ export function TeamStudio() {
             </section>
 
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>状态判定规则</h3><small>每个位置都有数据来源</small></div><button type="button" onClick={cycleSleepThreshold}>{sleepThreshold}m</button></header>
+              <header className={styles.sideHead}><div><h3>State rules</h3><small>Every position has a data source</small></div><button type="button" onClick={cycleSleepThreshold}>{sleepThreshold}m</button></header>
               <div className={styles.ruleList}>
-                <Rule title="更新密集">最近更新时间短、事件多、并行任务多，角色动作更快。</Rule>
-                <Rule title="摸鱼指数">忙碌分的反向值；等待用户、PR 或外部阻塞不计摸鱼。</Rule>
-                <Rule title="角色分身">每多一项并行任务，就在对应职责区生成一个任务实例。</Rule>
-                <Rule title="进入休眠">超过 {sleepThreshold} 分钟无更新，角色进入休眠区，原工位仍保留负责人。</Rule>
+                <Rule title="Update density">Recent updates, more events, and parallel tasks increase the activity signal.</Rule>
+                <Rule title="Slack score">Inverse of the busy score; user, PR, and external waits are excluded.</Rule>
+                <Rule title="Actor clones">Each parallel task creates one visible task actor in its responsibility zone.</Rule>
+                <Rule title="Sleep state">After {sleepThreshold} minutes without an update, the actor moves to the dormant zone while the owner plate remains.</Rule>
               </div>
             </section>
 
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>实时动态</h3><small>演示时间 +{offsetMinutes} 分钟</small></div><button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>看日历</button></header>
+              <header className={styles.sideHead}><div><h3>Live activity</h3><small>Demo time +{offsetMinutes} minutes</small></div><button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Calendar</button></header>
               <div className={styles.feed}>
                 {feed.slice(0, 8).map((event) => <div className={styles.feedItem} key={event.id}><time>{shortAge(event.minutes + offsetMinutes)}</time><span>{event.text}</span></div>)}
               </div>
@@ -274,7 +523,7 @@ export function TeamStudio() {
         </section>
 
         <footer className={styles.footerNote}>
-          <span>当前为交互演示数据；状态判定、任务分身、跨区支援与休眠逻辑均实际运行。</span>
+          <span>Interactive demo data is active; state scoring, task clones, cross-zone support, and sleep logic are fully functional.</span>
           <span>READY FOR CODEX MCP · HOOKS · GITHUB · CALENDAR</span>
         </footer>
       </div>
@@ -298,7 +547,7 @@ export function TeamStudio() {
 function PixelBird({ bird, size, animation = 'idle', facing = 1, label }: {
   bird: string
   size: number
-  animation?: 'idle' | 'walk'
+  animation?: BirdAnimation
   facing?: 1 | -1 | number
   label?: string
 }) {
@@ -333,15 +582,18 @@ function PulseSummary({ pulses }: { pulses: MemberPulse[] }) {
   const slack = pulses.filter((pulse) => pulse.level === 'slack').length
   const waiting = pulses.filter((pulse) => ['waiting', 'blocked'].includes(pulse.level)).length
   const sleeping = pulses.filter((pulse) => pulse.level === 'sleep').length
-  return <div className={styles.pulseSummary}><div><b>{busy}</b><span>忙碌</span></div><div><b>{slack}</b><span>摸鱼偏高</span></div><div><b>{waiting}</b><span>等待</span></div><div><b>{sleeping}</b><span>睡眠</span></div></div>
+  return <div className={styles.pulseSummary}><div><b>{busy}</b><span>Busy</span></div><div><b>{slack}</b><span>Low activity</span></div><div><b>{waiting}</b><span>Waiting</span></div><div><b>{sleeping}</b><span>Asleep</span></div></div>
 }
 
-function WorkZone({ zone, members, tasks, actors, onOpen }: {
+function WorkZone({ slot, zone, members, tasks, actors, editing, selected, onSelect }: {
+  slot: StudioLayoutSlot
   zone: TeamZone
   members: TeamMember[]
   tasks: TeamTask[]
   actors: ActorInstance[]
-  onOpen: () => void
+  editing: boolean
+  selected: boolean
+  onSelect: () => void
 }) {
   const owner = members.find((member) => member.id === zone.ownerId)
   const zoneTasks = tasks.filter((task) => task.zoneId === zone.id && task.status !== 'done')
@@ -352,62 +604,122 @@ function WorkZone({ zone, members, tasks, actors, onOpen }: {
   } as CSSProperties
 
   return (
-    <button type="button" className={styles.zone} data-theme={zone.theme} style={zoneStyle} onClick={onOpen}>
+    <button
+      type="button"
+      className={styles.zone}
+      data-theme={zone.theme}
+      data-editing={editing}
+      data-selected={selected}
+      style={zoneStyle}
+      onClick={onSelect}
+      aria-label={editing ? `Move ${zone.name}, currently in slot ${slot.index + 1}` : `View ${zone.name}`}
+    >
+      <span className={styles.zoneSlot}>#{slot.index + 1} · {slot.row + 1}-{slot.column + 1}{editing ? ' · click to swap' : ''}</span>
       <span className={styles.zoneHead}>
         <span className={styles.ownerPlate}>
           {owner && <PixelBird bird={owner.bird} size={42} />}
-          <span><b>{zone.name}</b><small>{owner ? `负责人 · ${owner.name}` : '共享设施'}</small></span>
+          <span><b>{zone.name}</b><small>{owner ? `Owner · ${owner.name}` : 'Shared facility'}</small></span>
         </span>
-        <span className={styles.zoneProgress}><b>{owner ? `${progress}%` : 'FACILITY'}</b><small>{owner ? `${workers.size} 人 / ${zoneTasks.length} 任务` : '共享区域'}</small></span>
+        <span className={styles.zoneProgress}><b>{owner ? `${progress}%` : 'FACILITY'}</b><small>{owner ? `${formatCount(workers.size, 'person', 'people')} / ${formatCount(zoneTasks.length, 'task')}` : 'Shared area'}</small></span>
       </span>
     </button>
   )
 }
 
-function AgentActor({ actor, onOpen }: { actor: ActorInstance; onOpen: () => void }) {
-  const crossZone = Boolean(actor.task && actor.task.zoneId !== actor.member.assignedZone)
-  const ownerZone = TEAM_ZONES.find((zone) => zone.id === actor.member.assignedZone)!
-  const routeStartX = ownerZone.x + ownerZone.width / 2
-  const routeStartY = ownerZone.y + ownerZone.height * 0.55
-  const routeCorridorY = Math.max(ownerZone.y, actor.zone.y) - 8
-  const facingForward = actor.x >= routeStartX ? 1 : -1
-  const motion = actor.pulse.sleeping
-    ? 'sleepwalk'
-    : actor.pulse.waiting || actor.pulse.blocked
-      ? 'idle'
-      : crossZone ? 'commute' : 'roam'
-  const roamDuration = actor.pulse.level === 'turbo' ? 2.8 : actor.pulse.level === 'busy' ? 3.8 : actor.pulse.level === 'slack' ? 7.5 : 5.3
-  const commuteDuration = Math.max(9, roamDuration * 2.6)
-  const taskLabel = actor.pulse.sleeping
-    ? '无更新，自动进入休眠区'
+function EmptyLayoutSlot({ slot, editing, selectedZoneId, onSelect }: {
+  slot: StudioLayoutSlot
+  editing: boolean
+  selectedZoneId: string | null
+  onSelect: () => void
+}) {
+  const style = {
+    '--zone-x': `${slot.x}px`, '--zone-y': `${slot.y}px`, '--zone-width': `${slot.width}px`, '--zone-height': `${slot.height}px`,
+  } as CSSProperties
+  return (
+    <button type="button" className={styles.emptyZone} style={style} onClick={onSelect} disabled={!editing}>
+      <b>Empty room #{slot.index + 1}</b>
+      <span>{editing && selectedZoneId ? 'Place here' : editing ? 'Select a room first' : 'Available slot'}</span>
+    </button>
+  )
+}
+
+function AgentActor({ actor, zones, transit, onTransitEnd, onOpen }: {
+  actor: ActorInstance
+  zones: TeamZone[]
+  transit?: ActorTransit
+  onTransitEnd: () => void
+  onOpen: () => void
+}) {
+  const crossZone = actor.zone.id !== actor.member.assignedZone
+  const flowIndex = WORKFLOW_ZONE_ORDER.indexOf(actor.zone.id)
+  const nextZone = zones.find((zone) => zone.id === WORKFLOW_ZONE_ORDER[flowIndex + 1])
+  const facingForward = transit
+    ? transit.route[5].x >= transit.route[0].x ? 1 : -1
+    : actor.pulse.blocked && nextZone
+      ? nextZone.x + nextZone.width / 2 >= actor.x ? 1 : -1
+      : 1
+  const motion = transit ? 'transit' : 'settled'
+  const birdAnimation: BirdAnimation = actor.pulse.sleeping
+    ? transit ? 'walk' : 'sleep'
+    : transit
+      ? 'walk'
+      : actor.pulse.waiting || actor.pulse.blocked || actor.zone.id === 'lounge'
+        ? 'sit'
+        : actor.pulse.level === 'turbo'
+          ? actor.member.bird === 'swift' ? 'fly' : 'run'
+          : actor.task ? 'work' : 'idle'
+  const fromZone = transit ? zones.find((zone) => zone.id === transit.fromZoneId) : undefined
+  const toZone = transit ? zones.find((zone) => zone.id === transit.toZoneId) : undefined
+  const taskLabel = transit
+    ? `${transit.direction === 'rollback' ? 'Review rollback · ' : ''}${fromZone?.name ?? transit.fromZoneId} → ${toZone?.name ?? transit.toZoneId}`
+    : actor.pulse.sleeping
+      ? 'No recent updates; settled in the dormant zone'
     : actor.zone.id === 'lounge'
-      ? '更新频率偏低，暂离工位'
-      : actor.task?.short ?? '暂无执行任务'
+      ? 'Low update frequency; away from the desk'
+      : actor.task?.short ?? 'No active task'
+  const route = transit?.route
   const style = {
     '--actor-x': `${actor.x}px`,
     '--actor-y': `${actor.y}px`,
-    '--route-start-x': `${routeStartX - actor.x}px`,
-    '--route-start-y': `${routeStartY - actor.y}px`,
-    '--route-corridor-y': `${routeCorridorY - actor.y}px`,
-    '--roam-duration': `${roamDuration}s`,
-    '--commute-duration': `${commuteDuration}s`,
-    '--facing-forward': facingForward,
-    '--facing-backward': -facingForward,
+    '--transit-duration': `${transit?.durationMs ?? 0}ms`,
+    '--route-0-x': `${(route?.[0].x ?? actor.x) - actor.x}px`,
+    '--route-0-y': `${(route?.[0].y ?? actor.y) - actor.y}px`,
+    '--route-1-x': `${(route?.[1].x ?? actor.x) - actor.x}px`,
+    '--route-1-y': `${(route?.[1].y ?? actor.y) - actor.y}px`,
+    '--route-2-x': `${(route?.[2].x ?? actor.x) - actor.x}px`,
+    '--route-2-y': `${(route?.[2].y ?? actor.y) - actor.y}px`,
+    '--route-3-x': `${(route?.[3].x ?? actor.x) - actor.x}px`,
+    '--route-3-y': `${(route?.[3].y ?? actor.y) - actor.y}px`,
+    '--route-4-x': `${(route?.[4].x ?? actor.x) - actor.x}px`,
+    '--route-4-y': `${(route?.[4].y ?? actor.y) - actor.y}px`,
     zIndex: 20 + Math.round(actor.y),
   } as CSSProperties
 
   return (
-    <button type="button" className={styles.actor} data-level={actor.pulse.level} data-motion={motion} style={style} onClick={onOpen}>
+    <button
+      type="button"
+      className={styles.actor}
+      data-level={actor.pulse.level}
+      data-motion={motion}
+      data-direction={transit?.direction ?? 'none'}
+      data-accounting={transit ? 'transit-excluded' : 'settled'}
+      style={style}
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget) onTransitEnd()
+      }}
+      onClick={onOpen}
+    >
       <span className={styles.actorCore}>
         <span className={styles.busyLines}><i /><i /><i /><i /></span>
-        {actor.cloneTotal > 1 && <span className={styles.cloneBadge}>分身 {actor.cloneIndex}/{actor.cloneTotal}</span>}
-        {crossZone && <span className={styles.supportBadge}>跨区支援</span>}
-        <span className={styles.thought}>{actor.pulse.waiting ? 'WAIT' : actor.pulse.blocked ? 'BLOCK' : actor.pulse.sleeping ? 'Z Z' : actor.pulse.level === 'slack' ? '…' : ''}</span>
-        <PixelBird bird={actor.member.bird} size={72} animation={motion === 'idle' ? 'idle' : 'walk'} facing={facingForward} />
+        {actor.cloneTotal > 1 && <span className={styles.cloneBadge}>Clone {actor.cloneIndex}/{actor.cloneTotal}</span>}
+        {crossZone && <span className={styles.supportBadge}>Cross-zone support</span>}
+        {transit?.direction === 'rollback' ? <span className={styles.rollbackBadge}>↩ ROLLBACK</span> : null}
+        <span className={styles.thought}>{transit ? transit.direction === 'rollback' ? 'BACK' : '→' : actor.pulse.blocked ? 'BLOCK' : actor.pulse.waiting ? 'WAIT' : actor.pulse.sleeping ? 'Z Z' : actor.pulse.level === 'slack' ? '…' : ''}</span>
+        <PixelBird bird={actor.member.bird} size={72} animation={birdAnimation} facing={facingForward} />
       </span>
-      <span className={styles.actorName}>{actor.member.name}{crossZone ? ' · 非本区负责人' : ''}</span>
+      <span className={styles.actorName}>{actor.member.name}{crossZone ? ' · supporting outside owned zone' : ''}</span>
       <span className={styles.actorTask}>{taskLabel}</span>
-      <span className={styles.actorMetric}>{pulseLabel(actor.pulse)}</span>
+      <span className={styles.actorMetric}>{transit ? 'TRANSIT · BUSY/SLACK FROZEN' : pulseLabel(actor.pulse)}</span>
     </button>
   )
 }
@@ -423,13 +735,13 @@ function Drawer({ drawer, members, tasks, actors, pulses, offsetMinutes, onClose
   onNavigate: (state: Exclude<DrawerState, null>) => void
 }) {
   const title = drawer.type === 'member'
-    ? members.find((member) => member.id === drawer.id)?.name ?? '成员详情'
+    ? members.find((member) => member.id === drawer.id)?.name ?? 'Member details'
     : drawer.type === 'zone'
-      ? TEAM_ZONES.find((zone) => zone.id === drawer.id)?.name ?? '区域详情'
-      : drawer.type === 'kpi' ? '团队 KPI' : '团队日历'
-  const subtitle = drawer.type === 'member' ? '任务、分身、个人指标与日程'
-    : drawer.type === 'zone' ? '固定负责人、当前执行者与区域任务'
-      : drawer.type === 'kpi' ? '每一项进度都来自可解释的任务状态' : '按成员筛选；点击日程进入对应职责区域'
+      ? TEAM_ZONES.find((zone) => zone.id === drawer.id)?.name ?? 'Zone details'
+      : drawer.type === 'kpi' ? 'Team KPIs' : 'Team calendar'
+  const subtitle = drawer.type === 'member' ? 'Tasks, clones, personal metrics, and schedule'
+    : drawer.type === 'zone' ? 'Fixed owner, current executors, and zone tasks'
+      : drawer.type === 'kpi' ? 'Every progress value comes from an explainable task state' : 'Filter by member; select an event to open its responsibility zone'
 
   function closeFromBackdrop(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) onClose()
@@ -438,7 +750,7 @@ function Drawer({ drawer, members, tasks, actors, pulses, offsetMinutes, onClose
   return (
     <div className={styles.drawerBackdrop} role="presentation" onMouseDown={closeFromBackdrop}>
       <aside className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="team-drawer-title">
-        <header className={styles.drawerHead}><div><h2 id="team-drawer-title">{title}</h2><p>{subtitle}</p></div><button type="button" onClick={onClose} aria-label="关闭">×</button></header>
+        <header className={styles.drawerHead}><div><h2 id="team-drawer-title">{title}</h2><p>{subtitle}</p></div><button type="button" onClick={onClose} aria-label="Close">×</button></header>
         <div className={styles.drawerBody}>
           {drawer.type === 'member' && <MemberDetail member={members.find((member) => member.id === drawer.id)!} tasks={tasks} pulse={pulses.get(drawer.id)!} offsetMinutes={offsetMinutes} />}
           {drawer.type === 'zone' && <ZoneDetail zone={TEAM_ZONES.find((zone) => zone.id === drawer.id)!} members={members} tasks={tasks} actors={actors} pulses={pulses} offsetMinutes={offsetMinutes} onOpenMember={(id) => onNavigate({ type: 'member', id })} />}
@@ -456,22 +768,22 @@ function MemberDetail({ member, tasks, pulse, offsetMinutes }: { member: TeamMem
   return <>
     <section className={styles.memberHero}>
       <PixelBird bird={member.bird} size={128} label={member.species} />
-      <div><h3>{member.name}</h3><p>{member.role} · {member.species}。固定负责区域：{ownerZone.name}；地图位置由任务区域和最近更新决定。</p><div className={styles.metricChips}><span>最近更新 {shortAge(pulse.age)}</span><span>30m 更新 {pulse.effective30m}</span><span>并行分身 {Math.max(1, pulse.activeTasks.length)}</span><span>{pulseLabel(pulse)}</span></div></div>
+      <div><h3>{member.name}</h3><p>{member.role} · {member.species}. Logical ownership: {ownerZone.name}. Map position is derived from the current floor, task zone, and most recent update.</p><div className={styles.metricChips}><span>Updated {shortAge(pulse.age)}</span><span>30m updates {pulse.effective30m}</span><span>Parallel tasks {pulse.activeTasks.length}</span><span>{pulseLabel(pulse)}</span></div></div>
     </section>
-    <SectionTitle title="当前与剩余任务" meta={`${memberTasks.length} 项`} />
+    <SectionTitle title="Current and remaining tasks" meta={`${memberTasks.length} items`} />
     <div className={styles.taskList}>{memberTasks.map((task) => {
       const zone = TEAM_ZONES.find((item) => item.id === task.zoneId)!
       const crossZone = task.zoneId !== member.assignedZone
       return <article className={styles.taskCard} key={task.id}>
         <div className={styles.taskCardHead}><h4>{task.title}</h4><b>{task.progress}%</b></div>
-        <p>{taskStatusLabel(task.status)} · 最近更新 {shortAge(currentAge(task.lastUpdateMinutes, offsetMinutes))} · 截止 {task.due}</p>
+        <p>{taskStatusLabel(task.status)} · updated {shortAge(currentAge(task.lastUpdateMinutes, offsetMinutes))} · due {task.due}</p>
         <ProgressBar value={task.progress} />
-        <div className={styles.tagRow}><span>区域：{zone.name}</span>{crossZone && <span data-kind="support">跨区支援 · 本职 {ownerZone.name}</span>}{task.note && <span data-kind="wait">{task.note}</span>}</div>
+        <div className={styles.tagRow}><span>Zone: {zone.name}</span>{crossZone && <span data-kind="support">Cross-zone support · owned zone {ownerZone.name}</span>}{task.note && <span data-kind="wait">{task.note}</span>}</div>
       </article>
     })}</div>
-    <SectionTitle title="个人 KPI" meta={`总进度 ${member.kpi}%`} />
+    <SectionTitle title="Personal KPIs" meta={`Overall progress ${member.kpi}%`} />
     <div className={styles.kpiDetail}>{member.kpis.map((kpi) => <div className={styles.kpiLine} key={kpi.label}><b>{kpi.label}</b><span>{kpi.current} / {kpi.target}</span><ProgressBar value={kpi.current / kpi.target * 100} /></div>)}</div>
-    <SectionTitle title="今日日程" meta="点击团队日历可查看全员" />
+    <SectionTitle title="Today's schedule" meta="Open Team calendar to view everyone" />
     <div className={styles.scheduleCards}>{member.schedule.map((item) => <article className={styles.scheduleCard} key={`${item.time}-${item.title}`}><b>{item.title}</b><time>{item.time}</time></article>)}</div>
   </>
 }
@@ -488,25 +800,25 @@ function ZoneDetail({ zone, members, tasks, actors, pulses, offsetMinutes, onOpe
   const owner = members.find((member) => member.id === zone.ownerId)
   const zoneTasks = tasks.filter((task) => task.zoneId === zone.id)
   const workerIds = [...new Set(actors.filter((actor) => actor.zone.id === zone.id).map((actor) => actor.member.id))]
-  if (!owner) return <><SectionTitle title="当前成员" meta={`${workerIds.length} 个角色`} /><div className={styles.zoneWorkers}>{workerIds.length ? workerIds.map((id) => {
+  if (!owner) return <><SectionTitle title="Current members" meta={formatCount(workerIds.length, 'actor')} /><div className={styles.zoneWorkers}>{workerIds.length ? workerIds.map((id) => {
     const member = members.find((item) => item.id === id)!
     return <WorkerButton key={id} member={member} pulse={pulses.get(id)!} onClick={() => onOpenMember(id)} />
-  }) : <article className={styles.taskCard}>当前无人使用此区域。</article>}</div></>
+  }) : <article className={styles.taskCard}>Nobody is using this zone.</article>}</div></>
   const progress = zoneTasks.length ? Math.round(zoneTasks.reduce((sum, task) => sum + task.progress, 0) / zoneTasks.length) : 0
   return <>
-    <section className={styles.zoneOwner}><PixelBird bird={owner.bird} size={112} label={owner.species} /><div><h3>{owner.name}</h3><p>{owner.role}。无论当前谁在该区域工作，工位牌始终保留这位负责人。</p></div></section>
-    <SectionTitle title="当前执行者" meta={`${workerIds.length} 人`} />
+    <section className={styles.zoneOwner}><PixelBird bird={owner.bird} size={112} label={owner.species} /><div><h3>{owner.name}</h3><p>{owner.role}. The desk plate always identifies this owner, regardless of who is currently working in the zone.</p></div></section>
+    <SectionTitle title="Current executors" meta={formatCount(workerIds.length, 'person', 'people')} />
     <div className={styles.zoneWorkers}>{workerIds.length ? workerIds.map((id) => {
       const member = members.find((item) => item.id === id)!
       return <WorkerButton key={id} member={member} pulse={pulses.get(id)!} support={member.assignedZone !== zone.id} onClick={() => onOpenMember(id)} />
-    }) : <article className={styles.taskCard}>当前没有活跃执行者。</article>}</div>
-    <SectionTitle title="区域任务" meta={`${zoneTasks.length} 项 · 区域进度 ${progress}%`} />
-    <div className={styles.taskList}>{zoneTasks.map((task) => <article className={styles.taskCard} key={task.id}><div className={styles.taskCardHead}><h4>{task.title}</h4><b>{task.progress}%</b></div><p>{members.find((member) => member.id === task.assigneeId)?.name} · {taskStatusLabel(task.status)} · {shortAge(currentAge(task.lastUpdateMinutes, offsetMinutes))}更新</p><ProgressBar value={task.progress} /></article>)}</div>
+    }) : <article className={styles.taskCard}>No active executors in this zone.</article>}</div>
+    <SectionTitle title="Zone tasks" meta={`${zoneTasks.length} items · ${progress}% zone progress`} />
+    <div className={styles.taskList}>{zoneTasks.map((task) => <article className={styles.taskCard} key={task.id}><div className={styles.taskCardHead}><h4>{task.title}</h4><b>{task.progress}%</b></div><p>{members.find((member) => member.id === task.assigneeId)?.name} · {taskStatusLabel(task.status)} · updated {shortAge(currentAge(task.lastUpdateMinutes, offsetMinutes))}</p><ProgressBar value={task.progress} /></article>)}</div>
   </>
 }
 
 function WorkerButton({ member, pulse, support = false, onClick }: { member: TeamMember; pulse: MemberPulse; support?: boolean; onClick: () => void }) {
-  return <button type="button" className={styles.zoneWorker} onClick={onClick}><PixelBird bird={member.bird} size={58} /><span><b>{member.name}</b><small>{support ? '跨区支援 · ' : ''}{pulseLabel(pulse)}</small></span><em>{support ? '支援' : '本区'}</em></button>
+  return <button type="button" className={styles.zoneWorker} onClick={onClick}><PixelBird bird={member.bird} size={58} /><span><b>{member.name}</b><small>{support ? 'Cross-zone support · ' : ''}{pulseLabel(pulse)}</small></span><em>{support ? 'Support' : 'Owned'}</em></button>
 }
 
 function KpiDetail({ tab, members, actors, pulses, onChangeTab, onOpenMember }: {
@@ -518,12 +830,15 @@ function KpiDetail({ tab, members, actors, pulses, onChangeTab, onOpenMember }: 
   onOpenMember: (id: string) => void
 }) {
   const sleeping = [...pulses.values()].filter((pulse) => pulse.sleeping).length
+  const actorCountByMember = new Map<string, number>()
+  actors.forEach((actor) => actorCountByMember.set(actor.member.id, (actorCountByMember.get(actor.member.id) ?? 0) + 1))
   return <>
-    <div className={styles.drawerTabs}><button type="button" data-active={tab === 'people'} onClick={() => onChangeTab('people')}>成员进度</button><button type="button" data-active={tab === 'project'} onClick={() => onChangeTab('project')}>项目指标</button></div>
-    <div className={styles.summaryGrid}><Summary label="实际成员" value={members.length} /><Summary label="地图角色" value={actors.length} /><Summary label="并行分身" value={Math.max(0, actors.length - members.length)} /><Summary label="休眠成员" value={sleeping} /></div>
+    <div className={styles.drawerTabs}><button type="button" data-active={tab === 'people'} onClick={() => onChangeTab('people')}>Member progress</button><button type="button" data-active={tab === 'project'} onClick={() => onChangeTab('project')}>Project metrics</button></div>
+    <div className={styles.summaryGrid}><Summary label="Team members" value={members.length} /><Summary label="Map actors" value={actors.length} /><Summary label="Parallel clones" value={Math.max(0, actors.length - actorCountByMember.size)} /><Summary label="Sleeping members" value={sleeping} /></div>
     {tab === 'people' ? <div className={styles.memberKpiList}>{members.map((member) => {
       const pulse = pulses.get(member.id)!
-      return <button type="button" className={styles.memberKpiRow} key={member.id} onClick={() => onOpenMember(member.id)}><PixelBird bird={member.bird} size={72} /><div><h4>{member.name} · {member.role}</h4><p>负责人区域 {TEAM_ZONES.find((zone) => zone.id === member.assignedZone)?.name} · 最近更新 {shortAge(pulse.age)} · {Math.max(1, pulse.activeTasks.length)} 个地图角色</p><ProgressBar value={member.kpi} /></div><span className={styles.kpiNumbers}><b>{member.kpi}%</b><small>{pulse.slackScore === null ? '等待不计摸鱼' : `摸鱼 ${pulse.slackScore}`}</small></span></button>
+      const memberActorCount = actorCountByMember.get(member.id) ?? 0
+      return <button type="button" className={styles.memberKpiRow} key={member.id} onClick={() => onOpenMember(member.id)}><PixelBird bird={member.bird} size={72} /><div><h4>{member.name} · {member.role}</h4><p>Owned zone {TEAM_ZONES.find((zone) => zone.id === member.assignedZone)?.name} · updated {shortAge(pulse.age)} · {formatCount(memberActorCount, 'map actor')}</p><ProgressBar value={member.kpi} /></div><span className={styles.kpiNumbers}><b>{member.kpi}%</b><small>{pulse.slackScore === null ? 'wait excluded from slack' : `slack ${pulse.slackScore}`}</small></span></button>
     })}</div> : <div className={styles.projectKpis}>{PROJECT_KPIS.map((kpi) => <article className={styles.projectKpi} key={kpi.label}><div><h4>{kpi.label}</h4><b>{kpi.current} / {kpi.target}</b></div><ProgressBar value={kpi.current / kpi.target * 100} /><p>{kpi.description}</p></article>)}</div>}
   </>
 }
@@ -535,13 +850,13 @@ function CalendarDetail({ selectedMemberId, members, onSelectMember, onOpenEvent
   onOpenEvent: (memberIds: string[], zoneId: string) => void
 }) {
   return <>
-    <div className={styles.calendarFilters}><button type="button" data-active={selectedMemberId === 'all'} onClick={() => onSelectMember('all')}>全部成员</button>{members.map((member) => <button type="button" data-active={selectedMemberId === member.id} key={member.id} onClick={() => onSelectMember(member.id)}><PixelBird bird={member.bird} size={28} />{member.name}</button>)}</div>
+    <div className={styles.calendarFilters}><button type="button" data-active={selectedMemberId === 'all'} onClick={() => onSelectMember('all')}>All members</button>{members.map((member) => <button type="button" data-active={selectedMemberId === member.id} key={member.id} onClick={() => onSelectMember(member.id)}><PixelBird bird={member.bird} size={28} />{member.name}</button>)}</div>
     <div className={styles.calendarWrap}><div className={styles.calendarGrid}>{TEAM_DAY_NAMES.map((day, dayIndex) => {
       const events = TEAM_CALENDAR_EVENTS.filter((event) => event.day === dayIndex && (selectedMemberId === 'all' || event.memberIds.includes(selectedMemberId)))
-      return <section className={styles.dayColumn} key={day}><header><b>{day}</b><span>{events.length} 项安排</span></header><div>{events.length ? events.map((event) => <button type="button" className={styles.calendarEvent} key={event.id} onClick={() => onOpenEvent(event.memberIds, event.zoneId)}><time>{event.time}</time><b>{event.title}</b><span>{event.memberIds.map((id) => {
+      return <section className={styles.dayColumn} key={day}><header><b>{day}</b><span>{formatCount(events.length, 'event')}</span></header><div>{events.length ? events.map((event) => <button type="button" className={styles.calendarEvent} key={event.id} onClick={() => onOpenEvent(event.memberIds, event.zoneId)}><time>{event.time}</time><b>{event.title}</b><span>{event.memberIds.map((id) => {
         const member = members.find((item) => item.id === id)!
         return <PixelBird bird={member.bird} size={28} label={member.name} key={id} />
-      })}</span></button>) : <article className={styles.calendarEmpty}>暂无安排</article>}</div></section>
+      })}</span></button>) : <article className={styles.calendarEmpty}>No events</article>}</div></section>
     })}</div></div>
   </>
 }

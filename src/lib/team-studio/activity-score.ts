@@ -56,28 +56,28 @@ export function pulseFor(
 }
 
 export function pulseLabel(pulse: MemberPulse) {
-  if (pulse.level === 'sleep') return `已睡 · ${Math.round(pulse.age)}m 无更新`
-  if (pulse.level === 'waiting') return '等待外部事件 · 不计摸鱼'
-  if (pulse.level === 'blocked') return '被阻塞 · 不计摸鱼'
-  if (pulse.level === 'turbo') return `忙碌 ${pulse.busyScore} · 摸鱼 ${pulse.slackScore}`
-  if (pulse.level === 'busy') return `推进 ${pulse.busyScore} · 摸鱼 ${pulse.slackScore}`
-  if (pulse.level === 'steady') return `正常 ${pulse.busyScore} · 摸鱼 ${pulse.slackScore}`
-  return `摸鱼 ${pulse.slackScore} · 忙碌 ${pulse.busyScore}`
+  if (pulse.level === 'sleep') return `Asleep · no update for ${Math.round(pulse.age)}m`
+  if (pulse.level === 'waiting') return 'Waiting externally · slack excluded'
+  if (pulse.level === 'blocked') return 'Blocked · slack excluded'
+  if (pulse.level === 'turbo') return `Busy ${pulse.busyScore} · slack ${pulse.slackScore}`
+  if (pulse.level === 'busy') return `Progress ${pulse.busyScore} · slack ${pulse.slackScore}`
+  if (pulse.level === 'steady') return `Steady ${pulse.busyScore} · slack ${pulse.slackScore}`
+  return `Slack ${pulse.slackScore} · busy ${pulse.busyScore}`
 }
 
 export function shortAge(minutes: number) {
   const value = Math.round(minutes)
-  if (value < 1) return '刚刚'
-  if (value < 60) return `${value} 分钟前`
-  return `${Math.floor(value / 60)} 小时 ${value % 60} 分前`
+  if (value < 1) return 'just now'
+  if (value < 60) return `${value}m ago`
+  return `${Math.floor(value / 60)}h ${value % 60}m ago`
 }
 
 export const taskStatusLabel = (status: TeamTaskStatus) => ({
-  working: '进行中',
-  reviewing: '审查中',
-  waiting: '等待中',
-  blocked: '被阻塞',
-  paused: '暂停',
-  queued: '待开始',
-  done: '已完成',
+  working: 'In progress',
+  reviewing: 'In review',
+  waiting: 'Waiting',
+  blocked: 'Blocked',
+  paused: 'Paused',
+  queued: 'Queued',
+  done: 'Done',
 })[status]

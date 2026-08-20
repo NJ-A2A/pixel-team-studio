@@ -1,15 +1,15 @@
 # Contributing
 
-欢迎为 NestLinker Team Studio 提交改进。请保持变更小而清晰，并说明它解决的具体问题。
+Contributions to NestLinker Team Studio are welcome. Keep each change focused, easy to review, and explicit about the problem it solves.
 
-## 本地开发
+## Local development
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-提交前请运行：
+Run the full validation suite before submitting:
 
 ```bash
 pnpm typecheck
@@ -18,16 +18,16 @@ pnpm test
 pnpm build
 ```
 
-## Pull Request
+## Pull requests
 
-- 一个 PR 聚焦一个主题。
-- UI 改动请附截图或短视频。
-- 状态算法改动请补充测试。
-- 新数据适配器不得上传源代码、终端完整输出、密钥或私人日历内容。
+- Keep one pull request focused on one topic.
+- Include a screenshot or short recording for visual changes.
+- Add or update tests when changing state or scoring logic.
+- Data adapters must never upload source code, complete terminal output, secrets, prompts, or private calendar content.
 
-## 设计原则
+## Design principles
 
-- 地图位置必须来自任务或活动事件，不能随机伪造工作状态。
-- 等待用户、等待 Review、CI 和外部阻塞不计为“摸鱼”。
-- KPI 应来自可验证的任务、测试和交付条件，不以在线时长代替产出。
-- 默认只传递最少状态数据，避免收集提示词、代码内容和敏感日志。
+- Map positions must come from task or activity events; never fabricate work states with random movement.
+- Waiting for a user, review, CI, or an external dependency is not “slacking.”
+- KPIs should come from verifiable tasks, tests, and delivery conditions, never from online time alone.
+- Transmit the minimum state required by default and avoid collecting sensitive content or logs.

@@ -1,16 +1,19 @@
 import { pulseFor } from './activity-score'
 import type { ActorInstance, TeamMember, TeamTask, TeamZone } from './types'
 
-const ZONE_SLOTS: Record<string, Array<[number, number]>> = {
-  story: [[208, 112], [292, 112], [80, 168]],
-  visual: [[224, 108], [304, 108], [60, 160]],
-  frontend: [[56, 120], [140, 120], [216, 120]],
-  backend: [[244, 132], [316, 132], [60, 156]],
-  lounge: [[116, 152], [200, 152], [256, 88]],
-  qa: [[204, 128], [284, 128], [60, 140]],
-  release: [[208, 104], [288, 104], [88, 128]],
-  ops: [[248, 112], [320, 112], [124, 164]],
-  nap: [[60, 36], [60, 116], [256, 36], [256, 116]],
+const DEFAULT_SLOT_RATIOS: Array<[number, number]> = [
+  [.56, .55], [.78, .58], [.28, .7], [.46, .76],
+]
+const NAP_SLOT_RATIOS: Array<[number, number]> = [
+  [.25, .48], [.25, .76], [.72, .48], [.72, .76],
+]
+
+function actorPosition(zone: TeamZone, slotIndex: number): [number, number] {
+  const slots = zone.id === 'nap' ? NAP_SLOT_RATIOS : DEFAULT_SLOT_RATIOS
+  const [xRatio, yRatio] = slots[slotIndex % slots.length]
+  const x = Math.min(zone.width - 74, Math.max(74, zone.width * xRatio))
+  const y = Math.min(zone.height - 48, Math.max(98, zone.height * yRatio))
+  return [zone.x + x, zone.y + y]
 }
 
 export function buildActorInstances(
@@ -28,25 +31,34 @@ export function buildActorInstances(
     const pulse = pulseFor(member, tasks, offsetMinutes, sleepThresholdMinutes)
     let assignments: Array<{ task: TeamTask | null; zone: TeamZone }>
 
+    const ownerZone = zoneById.get(member.assignedZone)
+    const visibleTasks = pulse.activeTasks.flatMap((task) => {
+      const zone = zoneById.get(task.zoneId)
+      return zone ? [{ task, zone }] : []
+    })
+
     if (pulse.sleeping) {
-      assignments = [{ task: null, zone: zoneById.get('nap')! }]
+      const sleepZone = zoneById.get('nap') ?? ownerZone
+      assignments = sleepZone ? [{ task: null, zone: sleepZone }] : []
     } else if (pulse.activeTasks.length === 0 || (pulse.level === 'slack' && pulse.age >= 20)) {
-      assignments = [{ task: pulse.activeTasks[0] ?? null, zone: zoneById.get('lounge')! }]
+      const idleZone = zoneById.get('lounge') ?? ownerZone
+      assignments = idleZone ? [{ task: pulse.activeTasks[0] ?? null, zone: idleZone }] : []
     } else {
-      assignments = pulse.activeTasks.map((task) => ({ task, zone: zoneById.get(task.zoneId)! }))
+      assignments = visibleTasks.length
+        ? visibleTasks
+        : ownerZone ? [{ task: pulse.activeTasks[0] ?? null, zone: ownerZone }] : []
     }
 
     assignments.forEach(({ task, zone }, index) => {
-      const slots = ZONE_SLOTS[zone.id] ?? [[zone.width / 2, zone.height / 2] as [number, number]]
       const slotPosition = slotIndex[zone.id]++
-      const [slotX, slotY] = slots[slotPosition % slots.length]
+      const [x, y] = actorPosition(zone, slotPosition)
       instances.push({
         id: `${member.id}-${task?.id ?? zone.id}`,
         member,
         task,
         zone,
-        x: zone.x + slotX,
-        y: zone.y + slotY,
+        x,
+        y,
         pulse,
         cloneIndex: index + 1,
         cloneTotal: assignments.length,
