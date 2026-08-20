@@ -1,0 +1,82 @@
+.widget {
+  --ink: #152a22;
+  --paper: #fff8ef;
+  --pink: #f58ca8;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto auto minmax(300px, 1fr) auto;
+  width: 100%;
+  max-width: 520px;
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: Inter, Arial, "PingFang SC", sans-serif;
+}
+
+.widget *, .widget *::before, .widget *::after { box-sizing: border-box; }
+.widget button, .widget a { color: inherit; font: inherit; }
+.widget > header { display: flex; align-items: center; justify-content: space-between; min-height: 58px; padding: 9px 12px; border-bottom: 2px solid var(--ink); background: #fffdf8; }
+.widget > header > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.widget > header > div > span:last-child { display: grid; min-width: 0; }
+.widget > header b { font-size: 11px; letter-spacing: .08em; }
+.widget > header small { overflow: hidden; margin-top: 2px; color: rgb(21 42 34 / 62%); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.liveDot { width: 10px; height: 10px; border: 2px solid var(--ink); border-radius: 50%; background: #65d597; box-shadow: 0 0 0 3px rgb(101 213 151 / 22%); animation: pulse 1.8s ease-in-out infinite; }
+.widget nav { display: flex; align-items: center; gap: 6px; }
+.widget nav button, .widget nav a, .widgetState button { padding: 6px 8px; border: 1px solid var(--ink); border-radius: 999px; background: #fff; cursor: pointer; font-size: 8px; font-weight: 800; text-decoration: none; }
+.widget nav button:hover, .widget nav a:hover { background: #ffe0e9; }
+
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--ink); background: #d9efe5; }
+.summary span { padding: 7px 3px; border-right: 1px solid rgb(21 42 34 / 24%); font-size: 7px; text-align: center; text-transform: uppercase; }
+.summary span:last-child { border-right: 0; }
+.summary b { display: block; font-size: 14px; }
+
+.office { position: relative; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 9px; min-height: 390px; padding: 45px 12px 12px; overflow: hidden; background: #9d8977; }
+.office::before, .office::after { position: absolute; z-index: 1; content: ""; background: #443d37; box-shadow: inset 0 0 0 2px rgb(255 255 255 / 12%); pointer-events: none; }
+.office::before { top: 0; bottom: 0; left: calc(50% - 4px); width: 8px; }
+.office::after { right: 0; bottom: calc(50% - 4px); left: 0; height: 8px; }
+.office article { position: relative; z-index: 2; min-width: 0; overflow: hidden; border: 2px solid rgb(21 42 34 / 76%); border-radius: 4px; background-color: #d7cec2; background-image: linear-gradient(rgb(255 255 255 / 10%), rgb(255 255 255 / 10%)), url('/team-studio/office/office-map.png'); background-position: 0 0, var(--room-x) var(--room-y); background-size: 100% 100%, 300% 300%; background-repeat: no-repeat; box-shadow: inset 0 0 0 2px rgb(255 255 255 / 26%); image-rendering: pixelated; }
+.office article > div { position: absolute; z-index: 3; top: 5px; right: 5px; left: 5px; display: grid; align-content: center; width: auto; height: 45px; padding: 5px 7px; border: 1px solid var(--ink); border-left: 4px solid var(--pink); border-radius: 2px; background: rgb(242 238 230 / 94%); box-shadow: 2px 2px 0 var(--ink); }
+.office article b, .office article small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office article b { font-size: 11px; }
+.office article small { margin-top: 2px; color: rgb(21 42 34 / 62%); font-size: 7px; }
+.office article em { position: absolute; right: 5px; bottom: 5px; padding: 3px 5px; border: 1px solid #934451; border-radius: 3px; color: #7f2636; background: #ffdce2; font-size: 6px; font-style: normal; font-weight: 900; }
+.meetingMini { position: absolute; z-index: 8; top: 8px; left: 12px; height: 28px; padding: 0 10px; border: 1.5px solid var(--ink); border-left: 4px solid var(--pink); border-radius: 3px; color: var(--ink); background: #fffdf8; box-shadow: 2px 2px 0 var(--ink); cursor: pointer; font-family: ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 950; letter-spacing: .06em; }
+.meetingMini:hover { background: #ffe0e9; }
+
+.widgetActors { position: absolute; z-index: 5; inset: 0; pointer-events: none; }
+.widgetActor { --bird-size: 48px; position: absolute; left: var(--actor-left); top: var(--actor-top); display: grid; justify-items: center; width: 72px; transform: translate(-50%, -48%); transition: left 1.4s cubic-bezier(.45,.05,.28,1), top 1.4s cubic-bezier(.45,.05,.28,1); }
+.widgetActor > i { display: block; width: var(--bird-size); height: var(--bird-size); background-repeat: no-repeat; background-size: calc(var(--bird-size) * 32) var(--bird-size); filter: drop-shadow(2px 3px 0 rgb(21 42 34 / 26%)); image-rendering: pixelated; animation: idle .95s steps(4, end) infinite; }
+.widgetActor[data-moving='true'] > i { animation: run .43s steps(6, end) infinite; }
+.widgetActor > b, .widgetActor > small { max-width: 70px; overflow: hidden; padding: 2px 4px; border-radius: 2px; color: #fff; background: rgb(21 42 34 / 88%); font-size: 6px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.widgetActor > small { margin-top: 1px; color: var(--ink); background: rgb(255 253 248 / 88%); }
+.widgetActor[data-moving='true'] > small { color: #7f2636; background: #ffdce2; font-weight: 900; }
+
+.widgetState { position: absolute; z-index: 10; inset: 12px; display: grid; place-content: center; justify-items: center; gap: 8px; border: 2px dashed var(--ink); border-radius: 4px; background: rgb(255 248 239 / 92%); font-size: 10px; font-weight: 800; }
+.widget > footer { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; min-height: 54px; padding: 7px 10px; border-top: 2px solid var(--ink); background: #fffdf8; }
+.widget > footer > span, .widget > footer > small { color: rgb(21 42 34 / 60%); font-size: 6px; font-weight: 900; }
+.widget > footer > div { display: flex; min-width: 0; overflow: hidden; }
+.widget > footer > div > span { flex: none; width: 32px; height: 32px; margin-right: -7px; border: 1px solid var(--ink); border-radius: 50%; background-color: #fff; background-repeat: no-repeat; background-size: 1024px 32px; image-rendering: pixelated; animation: idleSmall 1.1s steps(4, end) infinite; }
+.meetingOverlay { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 10px; background: rgb(21 42 34 / 64%); backdrop-filter: blur(4px); }
+.meetingOverlay > section { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(720px, 100%); height: min(820px, 100%); overflow: hidden; border: 2px solid var(--ink); border-radius: 12px; background: var(--paper); box-shadow: 7px 7px 0 rgb(21 42 34 / 35%); }
+.meetingOverlay > section > header { display: flex; align-items: center; justify-content: space-between; min-height: 54px; padding: 8px 12px; border-bottom: 2px solid var(--ink); background: var(--pink); }
+.meetingOverlay > section > header > div { display: grid; gap: 2px; }.meetingOverlay > section > header b { font-size: 11px; }.meetingOverlay > section > header small { font-size: 7px; }.meetingOverlay > section > header button { display: grid; width: 31px; height: 31px; padding: 0; place-items: center; border: 1px solid var(--ink); border-radius: 50%; background: #fff; cursor: pointer; font-size: 19px; }.meetingOverlay > section > div { overflow: auto; padding: 12px; }
+
+@keyframes pulse { 50% { opacity: .45; transform: scale(.78); } }
+@keyframes idle { from { background-position: 0 0; } to { background-position: calc(var(--bird-size) * -4) 0; } }
+@keyframes run { from { background-position: calc(var(--bird-size) * -8) 0; } to { background-position: calc(var(--bird-size) * -14) 0; } }
+@keyframes idleSmall { from { background-position: 0 0; } to { background-position: -128px 0; } }
+
+@media (max-width: 380px) {
+  .widget { grid-template-rows: auto auto minmax(280px, 1fr) auto; }
+  .office { min-height: 355px; padding: 42px 8px 8px; gap: 7px; }
+  .widgetActor { --bird-size: 42px; width: 62px; }
+  .widgetActor > b, .widgetActor > small { max-width: 60px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widgetActor { transition-duration: .01ms; }
+  .widgetActor > i, .widget > footer > div > span, .liveDot { animation-duration: 2s; }
+}

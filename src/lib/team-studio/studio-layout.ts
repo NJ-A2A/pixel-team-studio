@@ -18,6 +18,13 @@ export type StudioLayoutPreset = {
   note: string
 }
 
+export type StudioWorkflowPreset = {
+  id: string
+  label: string
+  note: string
+  zoneOrder: string[]
+}
+
 export type StudioLayoutSlot = {
   index: number
   row: number
@@ -41,6 +48,33 @@ export const STUDIO_LAYOUT_PRESETS: StudioLayoutPreset[] = [
   { id: '2x4', label: '2 × 4', rows: 2, columns: 4, note: 'Dual-row collaboration' },
   { id: '3x2', label: '3 × 2', rows: 3, columns: 2, note: 'Compact squad' },
   { id: '1x8', label: '1 × 8', rows: 1, columns: 8, note: 'Pipeline flow' },
+]
+
+export const STUDIO_WORKFLOW_PRESETS: StudioWorkflowPreset[] = [
+  {
+    id: 'product-delivery',
+    label: 'Product delivery',
+    note: 'Idea → design → build → test → release',
+    zoneOrder: ['story', 'visual', 'frontend', 'backend', 'qa', 'release', 'ops', 'lounge', 'nap'],
+  },
+  {
+    id: 'software-sprint',
+    label: 'Software sprint',
+    note: 'Plan → frontend → backend → QA → release',
+    zoneOrder: ['story', 'frontend', 'backend', 'qa', 'release', 'ops', 'visual', 'lounge', 'nap'],
+  },
+  {
+    id: 'operations-first',
+    label: 'Operations first',
+    note: 'Plan → operations → delivery → review',
+    zoneOrder: ['ops', 'story', 'visual', 'frontend', 'backend', 'qa', 'release', 'lounge', 'nap'],
+  },
+  {
+    id: 'creative-studio',
+    label: 'Creative studio',
+    note: 'Story → visual → production → review',
+    zoneOrder: ['story', 'visual', 'frontend', 'qa', 'backend', 'release', 'ops', 'lounge', 'nap'],
+  },
 ]
 
 const MIN_ROWS = 1
@@ -179,7 +213,7 @@ export function arrangeStudioLayout(
 }
 
 export function buildStudioLayoutScene(layout: StudioLayoutState, zones: TeamZone[]): StudioLayoutScene {
-  const gap = 14
+  const gap = 28
   const sidePadding = 16
   const topPadding = 76
   const bottomPadding = 16

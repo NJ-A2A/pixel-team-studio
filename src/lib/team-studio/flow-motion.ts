@@ -13,12 +13,14 @@ export type ActorTransit = {
   toZoneId: string
   direction: TransitDirection
   durationMs: number
+  reason: 'state-change' | 'rotation'
   route: [TransitPoint, TransitPoint, TransitPoint, TransitPoint, TransitPoint, TransitPoint]
 }
 
 const FORWARD_DURATION_MS = 2200
 const ROLLBACK_DURATION_MS = 3200
 const NEUTRAL_DURATION_MS = 2500
+const ROTATION_DURATION_MS = 1800
 const DOOR_INSET = 10
 
 const zoneCenter = (zone: TeamZone): TransitPoint => ({
@@ -121,6 +123,7 @@ export function diffActorTransits(
   nextActors: ActorInstance[],
   flowOrder: string[],
   sceneHeight: number,
+  rotatingActorIds: Set<string> = new Set(),
 ): ActorTransit[] {
   return nextActors.flatMap((actor) => {
     const previous = previousActors.get(actor.id)
@@ -136,7 +139,8 @@ export function diffActorTransits(
       fromZoneId: previous.zone.id,
       toZoneId: actor.zone.id,
       direction,
-      durationMs: durationFor(direction),
+      durationMs: rotatingActorIds.has(actor.id) ? ROTATION_DURATION_MS : durationFor(direction),
+      reason: rotatingActorIds.has(actor.id) ? 'rotation' : 'state-change',
       route: routeBetween(previous, actor, sceneHeight),
     }]
   })

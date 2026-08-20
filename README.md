@@ -9,16 +9,19 @@
 
 NestLinker Team Studio turns an abstract workflow into a living 2D office. The office is not tied to a fixed department map: choose a `3×3`, `2×4`, `3×2`, `1×8`, or custom grid, then arrange rooms around your delivery process.
 
-Position is data. A character moves only when its task actually changes zones, follows a one-shot doorway-and-corridor route, and stops when it arrives. If the data does not change, the entire office stays still.
+Position is data. A member with work in one office stays there. A member with active work across several offices keeps one identity bird and rotates through those rooms; active task weight controls dwell time, while corridor transit is accounted separately.
 
 ## Features
 
 - Configurable office grids: `3×3`, `2×4`, `3×2`, `1×8`, and custom `1–4 rows × 1–8 columns` layouts
-- Swappable department slots, empty rooms, an unplaced-room tray, and one-click workflow ordering
+- Swappable department slots, per-cell row/column selectors, empty rooms, an unplaced-room tray, and selectable workflow templates
+- Visible corridor lanes between every row and column of offices
+- Room-bound office artwork: furniture backgrounds travel with Product, Frontend, QA, Release, and every other room when layouts change
 - Versioned browser persistence; moving a room never changes its logical tasks or KPIs
-- Responsive pixel-office scene
-- 17 distinct 32×32 pixel birds, each with 24 animation frames: idle, walk, run, work, sit, sleep, and fly
+- Fit-to-viewport pixel-office scene that keeps the complete floor visible at every grid size
+- 17 distinct animated 32×32 pixel birds, selectable manually or through a three-question team casting game
 - Separate logical owners, active executors, and cross-zone support
+- Weighted one-bird rotation across multiple active offices, with separate seats and a roster whenever several people share a room
 - Automatic actor clones for parallel tasks
 - Event-driven one-shot movement: `settled → transit → settled`, with no looping patrols
 - Doorway anchors and deterministic corridor routes; no A* pathfinding required
@@ -26,7 +29,11 @@ Position is data. A character moves only when its task actually changes zones, f
 - Transit time is tracked separately and excluded from busy/slack scoring
 - Busy, steady, low-activity, waiting, blocked, and sleeping states
 - Member KPIs, project metrics, task details, and a team calendar
+- A dedicated compact office route, standalone pop-up, and Manifest V3 browser extension for draggable overlays or a native side panel
+- An upper-left meeting room with an AI idea inbox, human-reviewed brainstorm board, Markdown/memo materials, references, and meeting-summary drafts
 - Adjustable sleep thresholds, time advancement, and simulated events
+- Play-first onboarding with progressive Linear connection and visible measured/estimated/no-data provenance
+- Queue piles encode count and oldest wait separately; business-time flow efficiency and backlog-area rules are documented
 - A unified state layer ready for Codex MCP, Hooks, GitHub webhooks, and calendar events
 
 ## Quick start
@@ -42,6 +49,8 @@ pnpm dev
 
 Open the local URL printed by Vite.
 
+Open `http://localhost:5174/?view=widget&source=linear` for the compact office only, or click **Open floating office** in the full studio. To keep it over Claude, ChatGPT, Linear, or another website, load `browser-extension/` as an unpacked Chrome/Edge extension. See [Floating Office Widget](docs/FLOATING_WIDGET.md).
+
 ## Project structure
 
 ```text
@@ -50,6 +59,10 @@ src/lib/team-studio/          Members, tasks, activity scoring, layouts, and mov
 public/team-studio/           Pixel-bird and office assets
 public/team-studio/office/office_layouts.json  Functional/state layout definitions and anchors
 docs/REALTIME_INTEGRATION.md   MCP, Hooks, webhooks, SSE, permissions, and privacy
+docs/INGEST_LINEAR.md          Verified Linear schema, OAuth, backfill, webhooks, and flow metrics
+docs/FLOATING_WIDGET.md        Codex panel, standalone pop-up, and browser-extension setup
+docs/MEETING_ROOM.md           AI idea intake, human review, Markdown materials, and shared-event contract
+browser-extension/             Draggable overlay and Chrome/Edge side-panel shell
 tests/                        State-machine and map regression tests
 ```
 
@@ -67,19 +80,21 @@ Codex MCP / Codex Hooks / GitHub / Calendar
              Pixel Office UI
 ```
 
-See [Real-time integration](docs/REALTIME_INTEGRATION.md) for the event model, movement semantics, permissions, and privacy guidance.
+See [Real-time integration](docs/REALTIME_INTEGRATION.md) for the shared event model and [Linear-first flow ingestion](docs/INGEST_LINEAR.md) for the verified schema contract, OAuth, historical backfill, progressive connection, and measurement rules.
 
 ## Customize
 
 - Edit members, tasks, KPIs, and calendar events in `src/lib/team-studio/demo-data.ts`.
-- Use **Edit room layout** in the app to switch grids, swap rooms, or move rooms to the unplaced tray.
+- Open **Edit room layout** from the map toolbar to reveal the separate layout editor; grid presets, workflow templates, the row/column matrix, and the unplaced tray stay hidden during normal monitoring.
 - Edit logical responsibility zones and owners in `TEAM_ZONES`; `studio-layout.ts` generates map coordinates.
 - Edit layout presets, capacity, and room sizes in `studio-layout.ts`.
 - Edit the process order, doorway anchors, BLOCK behavior, and rollback rules for `model: "state"` layouts in `office_layouts.json`.
 - Edit task diffs, one-shot transit routes, and accounting boundaries in `flow-motion.ts`.
 - Edit adaptive actor positions in `actor-instances.ts`.
 - Replace `public/team-studio/office/office-map.png` to use your own office background.
-- Pixel-bird strips use the frame convention `idle 0–3 / walk 4–7 / run 8–11 / work 12–15 / sit 16–17 / sleep 18–19 / fly 20–23`.
+- Pixel-bird strips use the frame convention `idle 0–3 / walk 4–7 / run 8–13 / work 14–17 / sit 18–21 / sleep 22–25 / fly 26–31`.
+- Use **Choose team birds** to run the short work-style casting game or select any of the 17 birds manually. Appearance choices are stored locally and do not change Linear identity or task data.
+- The current asset contract remains 32×32. Extra-long beaks use the compact run/fly geometry supplied by the kit; moving to 40×40 is intentionally deferred as a breaking sprite-format change.
 
 ![Pixel birds](docs/birds-sheet.png)
 

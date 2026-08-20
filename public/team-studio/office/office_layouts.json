@@ -395,6 +395,153 @@
     }
   ],
 
+  "flow_schema": {
+    "note": "The workflow is the source of truth for state-model offices. Work steps become rooms; queue steps fold into the doorway pile of their downstream work room.",
+    "onboarding": {
+      "mode": "play_first_progressive_connect",
+      "before_connection": "Start with the interactive demo and manual drag events.",
+      "after_connection": "Replace estimated skins with measured Linear history without resetting the office."
+    },
+    "source_contracts": {
+      "linear": {
+        "workflow_state_type": {
+          "graphql_type": "String!",
+          "is_enum": false,
+          "discover_on_connect": true,
+          "known_categories": ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"],
+          "unknown_category": "keep unmapped and request confirmation",
+          "verified_by": "anonymous GraphQL introspection against https://api.linear.app/graphql on 2026-08-20"
+        },
+        "history_fields": ["fromState", "toState", "fromAssignee", "toAssignee", "actor"],
+        "history_fields_verified": true
+      }
+    },
+    "kinds": {
+      "queue": "Entering emits arrive and starts business-time waiting.",
+      "work": "Entering emits start and begins touch time.",
+      "terminal": "Entering emits done."
+    },
+    "linear_default_mapping": {
+      "triage": "outside_flow",
+      "backlog": "outside_flow",
+      "unstarted": "queue",
+      "started": "work",
+      "completed": "terminal",
+      "canceled": "terminal",
+      "duplicate": "terminal"
+    },
+    "example": {
+      "id": "flow_nestlinker",
+      "source": "linear",
+      "calendar": {
+        "tz": "Asia/Seoul",
+        "work_days": [1, 2, 3, 4, 5],
+        "work_hours": ["10:00", "19:00"],
+        "holiday_region": "KR"
+      },
+      "steps": [
+        { "id": "ready", "kind": "queue", "depends_on": [], "source_states": ["Todo"] },
+        { "id": "build", "kind": "work", "depends_on": ["ready"], "source_states": ["In Progress"] },
+        { "id": "review_q", "kind": "queue", "depends_on": ["build"], "source_states": ["Ready for review"] },
+        { "id": "review", "kind": "work", "depends_on": ["review_q"], "source_states": ["In Review"] },
+        { "id": "ship", "kind": "terminal", "depends_on": ["review"], "source_states": ["Done"] }
+      ],
+      "rework_edges": [["review", "build"]],
+      "start_proxy": "assignee_set",
+      "wip_limits": { "build": 5, "review": 3 }
+    }
+  },
+
+  "layout_derivation": {
+    "algorithm": [
+      "Only kind=work steps receive rooms; fold every queue into the doorway pile of its downstream work step.",
+      "Assign work steps to ASAP topological layers: layer=0 without dependencies, otherwise max(dependency layer)+1.",
+      "Use layer as column and stable order inside the layer as row.",
+      "Set grid to [max layer + 1, widest layer], adding one column only when rest or sleep rooms do not fit.",
+      "Place the rest room in the empty cell nearest the geometric center and the sleep room at bottom right.",
+      "Compute canvas with [cols*208+16, rows*144+16]; furniture coordinates remain cell-relative."
+    ],
+    "why_queue_folds": "A queue is waiting work, not a place occupied by a person. Giving it a room would exaggerate the number of serial work stages.",
+    "payoff": "Office length becomes a readable signal for serial workflow depth; making two steps parallel can immediately shorten the map.",
+    "compact_mode": { "threshold_cols": 4, "style": "boustrophedon", "floor_arrows": true }
+  },
+
+  "metrics": {
+    "time_basis": "business_hours",
+    "wait": "start_ts - arrive_ts; for work not yet started use now - arrive_ts and censored=true",
+    "touch": "done_ts - start_ts; for unfinished work use now - start_ts",
+    "backlog_area": {
+      "formula": "sum(wait_hours) over tasks currently waiting in the zone",
+      "identity": "Equivalent to the area between arrival and departure curves and to the integral of queue length over time.",
+      "unit": "item-hours"
+    },
+    "flow_efficiency": {
+      "formula": "touch / (touch + wait)",
+      "display": "Tasks in this zone spend {100-x}% of their time waiting rather than being worked on."
+    },
+    "bottleneck": {
+      "score": "backlog_area",
+      "rule": "Highlight exactly one current constraint, once minimum evidence is met.",
+      "min_sample": { "observed_tasks": 8, "observed_days": 5 },
+      "chronic": "The same zone ranks first for five consecutive ticks.",
+      "diagnosis_matrix": [
+        { "pile": "high", "member": "fast_and_sweating", "verdict": "capacity_constraint", "action": "add capacity or split the step" },
+        { "pile": "high", "member": "slow_and_calm", "verdict": "capacity_allocated_elsewhere", "action": "inspect cross-zone support and block events" },
+        { "pile": "empty", "member": "waiting", "verdict": "starved", "action": "inspect upstream" },
+        { "pile": "all_high", "member": "most_sweating", "verdict": "system_overload", "action": "reduce total WIP" }
+      ]
+    },
+    "censoring": {
+      "right": "Include elapsed waiting for tasks with no start event; completed-only averages understate the worst queues.",
+      "left": "Left-truncated tasks already queued at connection time show waited >= X with provenance=truncated until they drain.",
+      "robust_stat": "Prefer maximum current wait; use Kaplan-Meier when a distribution is required."
+    }
+  },
+
+  "rendering": {
+    "queue_pile": {
+      "anchor": "downstream work-room entry_door",
+      "height": "render min(queue_length, 8) boxes and show xN above the cap",
+      "aging_from": "maximum wait_hours among queued tasks",
+      "aging_tiers": [
+        { "max_h": 8, "skin": "new" },
+        { "max_h": 24, "skin": "dusty" },
+        { "max_h": 72, "skin": "cobweb" },
+        { "max_h": null, "skin": "cracked_faded" }
+      ],
+      "encoding": "Height represents count; aging represents the oldest wait."
+    },
+    "provenance_skins": {
+      "measured": "solid box",
+      "estimated": "dashed translucent box",
+      "truncated": "cracked box",
+      "no_data": "gray empty-box outline with Not connected; never render missing data as a clean floor"
+    },
+    "corridor_conveyor": {
+      "speed_from": "observed throughput on the edge",
+      "idle_means": "upstream starvation"
+    },
+    "member": {
+      "identity_mode": "one bird per person; task count never creates identity clones",
+      "demo_compatibility": "The current task-actor clone demo remains available as a separate visualization mode.",
+      "cross_zone": "When one member has active work in multiple zones, rotate the single identity bird through those zones.",
+      "allocation_weight": "Use explicit task workShare or estimate when present; otherwise every active issue contributes one equal weight.",
+      "dwell_ratio": "Settled office time is proportional to zone allocation weight; 40:60 produces 40% and 60% dwell time. Corridor transit is excluded from both shares.",
+      "multi_member_zone": "Render every current member in a separate seat and show a compact zone roster when two or more people share an office.",
+      "speed_axis": "tasks advanced in the last 24 business hours divided by the member's 30-day median",
+      "sweat_axis": "max(hand WIP / WIP limit, oldest blocked hours / 24)",
+      "pose_source": "Use the existing 32-frame bird sheet; run and fly are real poses, while settled idle/work/sit/sleep remain non-translating loops."
+    },
+    "migration": {
+      "applies_to": "layout.model == 'state'",
+      "trigger": "event-driven task state diffs move a bird once; multi-zone identity allocation additionally runs a deterministic weighted rotation schedule",
+      "path": "exit_door -> corridor_lane -> entry_door; no pathfinding",
+      "transit_accounting": "exclude from both busy and slack",
+      "block": "settled at the next doorway, facing forward, with a BLOCK bubble; at most a two-frame foot tap without translation",
+      "rework": "move backward at reduced speed with a red back arrow and backward-facing direction"
+    }
+  },
+
   "picker": {
     "flow": "Three questions select a recommended layout ID; users may skip them and choose manually.",
     "questions": [
