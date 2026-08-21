@@ -1,0 +1,561 @@
+{
+  "schema": "office-layout/1",
+  "note": "All coordinates are relative to their grid cell, not the canvas. The generator converts cell + margin into canvas coordinates before writing office.json. Moving a zone changes its cell, never its furniture coordinates.",
+
+  "grid": {
+    "cell": [208, 144],
+    "margin": 8,
+    "display_scale": 2,
+    "canvas_formula": "[cols*208+16, rows*144+16]",
+    "verified": {
+      "2x2": [432, 304],
+      "3x2": [640, 304],
+      "3x3": [640, 448],
+      "4x3": [848, 448]
+    },
+    "rule": "Furniture must stay fully inside its cell with a 4px safe edge. Each zone can then be exported as an independent 208x144 slice and composed by the frontend without rerunning Python for custom layouts."
+  },
+
+  "state_runtime": {
+    "applies_to": "layout.model == 'state'",
+    "position_semantics": "settled zone is data; movement is only a short-lived transition signal",
+    "tick": {
+      "strategy": "diff",
+      "identity": "actor_instance_id",
+      "compare": ["zoneId", "task.status", "task.progress", "flowRevision"],
+      "unchanged": "keep settled position; do not start any locomotion animation",
+      "changed_zone": "emit exactly one transit event"
+    },
+    "transition": {
+      "phases": ["settled", "transit", "settled"],
+      "route": ["exit_door", "corridor_lane", "entry_door"],
+      "pathfinding": false,
+      "forward_duration_ms": 2200,
+      "rollback_duration_ms": 3200,
+      "animation_fill_mode": "both",
+      "loop": false
+    },
+    "accounting": {
+      "transit": "exclude",
+      "busy": "unchanged while transit",
+      "slack": "unchanged while transit",
+      "resume_scoring": "after transitionend and settled commit"
+    },
+    "blocked": {
+      "movement": "none",
+      "position": "next zone entry_door minus 8px along incoming axis",
+      "facing": "next zone",
+      "pose": "sit",
+      "bubble": "BLOCK",
+      "allowed_motion": "two-frame foot tap without translation"
+    },
+    "rollback": {
+      "detect": "next flow index < previous flow index",
+      "speed": "0.7x forward speed",
+      "marker": "red back arrow",
+      "facing": "toward previous stage",
+      "metric": "rework transit; excluded from busy and slack"
+    },
+    "anchors": {
+      "units": "cell-relative pixels",
+      "cell_size": [208, 144],
+      "sprint6": {
+        "flow": ["todo", "doing", "review", "done"],
+        "zones": {
+          "todo": { "settled": [86, 118], "entry_door": [4, 112], "exit_door": [204, 112] },
+          "doing": { "settled": [78, 104], "entry_door": [4, 112], "exit_door": [204, 112] },
+          "review": { "settled": [96, 114], "entry_door": [4, 112], "exit_door": [104, 140] },
+          "done": { "settled": [92, 118], "entry_door": [104, 4], "exit_door": [204, 112] },
+          "standup": { "settled": [104, 100], "entry_door": [104, 4], "exit_door": [104, 140] },
+          "sleep": { "settled": [44, 44], "entry_door": [104, 4], "exit_door": [104, 140] }
+        }
+      },
+      "lab6": {
+        "flow": ["collect", "clean", "model", "viz"],
+        "zones": {
+          "collect": { "settled": [98, 116], "entry_door": [4, 112], "exit_door": [204, 112] },
+          "clean": { "settled": [98, 120], "entry_door": [4, 112], "exit_door": [204, 112] },
+          "model": { "settled": [62, 116], "entry_door": [4, 112], "exit_door": [104, 140] },
+          "viz": { "settled": [86, 116], "entry_door": [104, 4], "exit_door": [204, 112] },
+          "seminar": { "settled": [104, 100], "entry_door": [104, 4], "exit_door": [104, 140] },
+          "sleep": { "settled": [44, 44], "entry_door": [104, 4], "exit_door": [104, 140] }
+        }
+      }
+    }
+  },
+
+  "furniture": {
+    "reuse": {
+      "desk": "desk(x,y,w)",
+      "chair": "chair(x,y,dir)",
+      "arcade": "arcade(x,y)",
+      "bed": "bed(x,y)",
+      "nightlight": "nightlight(x,y)",
+      "corkboard": "corkboard(x,y,w)",
+      "easel": "easel(x,y)",
+      "swatchwall": "swatchwall(x,y,w)",
+      "rack": "rack(x,y)",
+      "barchart": "barchart(x,y,w)",
+      "bugjar": "bugjar(x,y)",
+      "checklist": "checklist(x,y)",
+      "conveyor": "conveyor(x,y,w)",
+      "box": "box(x,y)",
+      "calendarwall": "calendarwall(x,y,w)",
+      "mug": "mug(x,y)",
+      "sofa": "sofa(x,y,w)",
+      "coffeemachine": "coffeemachine(x,y)",
+      "plant": "plant(x,y)"
+    },
+    "new": {
+      "whiteboard": "whiteboard(x,y,w): whiteboard with a parameterized number of sticky notes",
+      "videowall": "videowall(x,y,w): monitoring display with a four-panel chart",
+      "headsetdesk": "headsetdesk(x,y): support desk with a hanging headset",
+      "micbooth": "micbooth(x,y): acoustic recording hood with a suspended microphone",
+      "assetshelf": "assetshelf(x,y,h): asset shelf filled with icons",
+      "sink": "sink(x,y): data-cleaning sink with a dripping animation",
+      "blackboard": "blackboard(x,y,w): formula blackboard",
+      "paperstack": "paperstack(x,y): manuscript stack with a red pen",
+      "antenna": "antenna(x,y): collection antenna with blinking signal dots",
+      "langboard": "langboard(x,y,w): Chinese, Korean, and English caption display"
+    },
+    "palette": "Reuse the bird-character palette; new furniture introduces no additional colors."
+  },
+
+  "layouts": [
+    {
+      "id": "studio9",
+      "name": { "zh": "全功能工作室", "ko": "종합 스튜디오", "en": "Full Studio" },
+      "for": "A complete production team of 10+ people with clear functional ownership.",
+      "model": "function",
+      "grid": [3, 3],
+      "canvas": [640, 448],
+      "fallback_zone": "lounge",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "story", "cell": [0,0], "name": {"zh":"产品与剧情","ko":"기획·시나리오","en":"Story"},
+          "match": ["剧情","脚本","策划","narrative","design"],
+          "furniture": [["corkboard",24,12,160],["desk",40,76,128],["mug",148,70]],
+          "seats": [{"id":"story-1","at":[68,104],"nameplate":[68,68]},{"id":"story-2","at":[120,104],"nameplate":[120,68]}] },
+        { "id": "art", "cell": [1,0], "name": {"zh":"视觉与角色","ko":"아트","en":"Art"},
+          "match": ["美术","角色","UI","art","sprite"],
+          "furniture": [["swatchwall",20,12,90],["easel",140,20],["desk",40,80,110]],
+          "seats": [{"id":"art-1","at":[70,108],"nameplate":[70,72]},{"id":"art-2","at":[122,108],"nameplate":[122,72]}] },
+        { "id": "frontend", "cell": [2,0], "name": {"zh":"前端实现","ko":"프론트엔드","en":"Frontend"},
+          "match": ["前端","实现","component","tsx","frontend"],
+          "furniture": [["desk",16,72,80],["desk",112,72,80],["plant",180,20]],
+          "seats": [{"id":"fe-1","at":[36,100],"nameplate":[36,64]},{"id":"fe-2","at":[76,100],"nameplate":[76,64]},{"id":"fe-3","at":[136,100],"nameplate":[136,64]}] },
+        { "id": "data", "cell": [0,1], "name": {"zh":"状态与数据","ko":"데이터","en":"Data"},
+          "match": ["数据","状态机","state","json","schema"],
+          "furniture": [["rack",20,16],["rack",56,16],["rack",92,16],["barchart",140,20,52],["desk",48,84,96]],
+          "seats": [{"id":"data-1","at":[96,112],"nameplate":[96,76]}] },
+        { "id": "lounge", "cell": [1,1], "name": {"zh":"共享休息区","ko":"라운지","en":"Lounge"},
+          "match": [],
+          "furniture": [["sofa",44,60,120],["coffeemachine",20,20],["plant",176,24]],
+          "seats": [{"id":"lg-1","at":[70,96],"kind":"rest"},{"id":"lg-2","at":[104,96],"kind":"rest"},{"id":"lg-3","at":[138,96],"kind":"rest"}] },
+        { "id": "qa", "cell": [2,1], "name": {"zh":"试玩与测试","ko":"QA","en":"Playtest"},
+          "match": ["测试","QA","bug","验证","playtest"],
+          "furniture": [["arcade",36,20],["arcade",108,20],["bugjar",172,84],["desk",30,88,96]],
+          "seats": [{"id":"qa-1","at":[54,116],"nameplate":[54,80]},{"id":"qa-2","at":[102,116],"nameplate":[102,80]}] },
+        { "id": "release", "cell": [0,2], "name": {"zh":"PR 与发布","ko":"릴리스","en":"Release"},
+          "match": ["PR","发布","merge","release","deploy"],
+          "furniture": [["checklist",24,16],["conveyor",70,40,120],["box",164,70],["desk",40,88,90]],
+          "seats": [{"id":"rel-1","at":[84,116],"nameplate":[84,80]}] },
+        { "id": "ops", "cell": [1,2], "name": {"zh":"运营与排期","ko":"운영·일정","en":"Ops"},
+          "match": ["运营","排期","日程","schedule","ops"],
+          "furniture": [["calendarwall",20,12,168],["desk",56,88,96]],
+          "seats": [{"id":"ops-1","at":[104,116],"nameplate":[104,80]}] },
+        { "id": "sleep", "cell": [2,2], "name": {"zh":"无更新休眠区","ko":"휴면실","en":"Dormant"},
+          "match": [], "floor_dim": 1,
+          "furniture": [["bed",20,28],["bed",112,28],["bed",20,88],["bed",112,88],["nightlight",96,20],["nightlight",96,80]],
+          "seats": [{"id":"bed-1","at":[44,44],"kind":"bed"},{"id":"bed-2","at":[136,44],"kind":"bed"},{"id":"bed-3","at":[44,104],"kind":"bed"},{"id":"bed-4","at":[136,104],"kind":"bed"}] }
+      ]
+    },
+
+    {
+      "id": "solo4",
+      "name": { "zh": "单人／双搭档工作室", "ko": "1인 스튜디오", "en": "Solo Studio" },
+      "for": "One to three people covering several roles without needing nine zones.",
+      "model": "function",
+      "grid": [2, 2],
+      "canvas": [432, 304],
+      "fallback_zone": "make",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "make", "cell": [0,0], "name": {"zh":"创作台","ko":"작업대","en":"Make"},
+          "match": ["剧情","美术","前端","数据","design","code"],
+          "furniture": [["corkboard",20,12,90],["easel",130,16],["desk",30,80,140],["mug",156,72]],
+          "seats": [{"id":"make-1","at":[70,108],"nameplate":[70,72]},{"id":"make-2","at":[122,108],"nameplate":[122,72]}] },
+        { "id": "build", "cell": [1,0], "name": {"zh":"构建与试玩","ko":"빌드·테스트","en":"Build"},
+          "match": ["构建","测试","bug","build","QA"],
+          "furniture": [["arcade",60,16],["rack",132,20],["bugjar",176,84],["desk",24,88,100]],
+          "seats": [{"id":"build-1","at":[70,116],"nameplate":[70,80]}] },
+        { "id": "ship", "cell": [0,1], "name": {"zh":"发布台","ko":"릴리스","en":"Ship"},
+          "match": ["PR","发布","release","运营","schedule"],
+          "furniture": [["checklist",22,14],["calendarwall",90,12,98],["conveyor",40,56,120],["box",166,66],["desk",44,90,92]],
+          "seats": [{"id":"ship-1","at":[90,118],"nameplate":[90,82]}] },
+        { "id": "sleep", "cell": [1,1], "name": {"zh":"卧室","ko":"침실","en":"Bedroom"},
+          "match": [], "floor_dim": 1,
+          "furniture": [["bed",30,30],["bed",120,30],["nightlight",100,22],["sofa",44,96,110]],
+          "seats": [{"id":"bed-1","at":[54,46],"kind":"bed"},{"id":"bed-2","at":[144,46],"kind":"bed"},{"id":"lg-1","at":[92,120],"kind":"rest"}] }
+      ]
+    },
+
+    {
+      "id": "sprint6",
+      "name": { "zh": "敏捷看板办公室", "ko": "스프린트 보드", "en": "Sprint Board" },
+      "for": "Teams driven by ticket flow: zones represent task states and people move with their cards.",
+      "model": "state",
+      "model_note": "This model has no cross-zone-support badge because movement is expected. WAIT/BLOCK stops the actor at the next-zone doorway without entering.",
+      "grid": [3, 2],
+      "canvas": [640, 304],
+      "fallback_zone": "standup",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "todo", "cell": [0,0], "name": {"zh":"待办","ko":"할 일","en":"To do"},
+          "match": ["todo","backlog","未开始"],
+          "furniture": [["whiteboard",20,14,168],["desk",56,90,96]],
+          "seats": [{"id":"todo-1","at":[86,118],"nameplate":[86,82]}] },
+        { "id": "doing", "cell": [1,0], "name": {"zh":"进行中","ko":"진행 중","en":"In progress"},
+          "match": ["doing","in progress","开发中"],
+          "furniture": [["desk",16,76,84],["desk",112,76,80],["whiteboard",60,12,90]],
+          "seats": [{"id":"do-1","at":[38,104],"nameplate":[38,68]},{"id":"do-2","at":[78,104],"nameplate":[78,68]},{"id":"do-3","at":[138,104],"nameplate":[138,68]}] },
+        { "id": "review", "cell": [2,0], "name": {"zh":"评审","ko":"리뷰","en":"Review"},
+          "match": ["review","评审","CR","PR"],
+          "furniture": [["paperstack",30,60],["checklist",150,16],["desk",60,86,100]],
+          "seats": [{"id":"rv-1","at":[96,114],"nameplate":[96,78]}] },
+        { "id": "done", "cell": [0,1], "name": {"zh":"合并发布","ko":"완료·배포","en":"Shipped"},
+          "match": ["done","merged","released","已完成"],
+          "furniture": [["conveyor",24,44,150],["box",160,72],["checklist",26,14],["desk",50,92,88]],
+          "seats": [{"id":"dn-1","at":[92,118],"nameplate":[92,82]}] },
+        { "id": "standup", "cell": [1,1], "name": {"zh":"站会休息区","ko":"스탠드업","en":"Standup"},
+          "match": [],
+          "furniture": [["whiteboard",22,12,80],["sofa",40,66,124],["coffeemachine",170,18]],
+          "seats": [{"id":"su-1","at":[66,100],"kind":"rest"},{"id":"su-2","at":[104,100],"kind":"rest"},{"id":"su-3","at":[142,100],"kind":"rest"}] },
+        { "id": "sleep", "cell": [2,1], "name": {"zh":"休眠区","ko":"휴면실","en":"Dormant"},
+          "match": [], "floor_dim": 1,
+          "furniture": [["bed",20,28],["bed",112,28],["bed",20,88],["bed",112,88],["nightlight",96,52]],
+          "seats": [{"id":"bed-1","at":[44,44],"kind":"bed"},{"id":"bed-2","at":[136,44],"kind":"bed"},{"id":"bed-3","at":[44,104],"kind":"bed"},{"id":"bed-4","at":[136,104],"kind":"bed"}] }
+      ]
+    },
+
+    {
+      "id": "content9",
+      "name": { "zh": "内容工厂", "ko": "콘텐츠 공장", "en": "Content Factory" },
+      "for": "Story- and localization-heavy teams producing Chinese, Korean, and English versions in parallel.",
+      "model": "function",
+      "grid": [3, 3],
+      "canvas": [640, 448],
+      "fallback_zone": "lounge",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "writing", "cell": [0,0], "name": {"zh":"编剧","ko":"각본","en":"Writing"},
+          "match": ["剧情","脚本","台词","script"],
+          "furniture": [["corkboard",22,12,164],["desk",44,80,120],["mug",150,74]],
+          "seats": [{"id":"wr-1","at":[74,108],"nameplate":[74,72]},{"id":"wr-2","at":[122,108],"nameplate":[122,72]}] },
+        { "id": "board", "cell": [1,0], "name": {"zh":"分镜","ko":"콘티","en":"Storyboard"},
+          "match": ["分镜","storyboard","流程图"],
+          "furniture": [["whiteboard",20,12,168],["desk",56,88,96]],
+          "seats": [{"id":"bd-1","at":[92,116],"nameplate":[92,80]}] },
+        { "id": "art", "cell": [2,0], "name": {"zh":"美术","ko":"아트","en":"Art"},
+          "match": ["美术","立绘","像素","art"],
+          "furniture": [["swatchwall",20,12,88],["easel",138,18],["desk",40,84,112]],
+          "seats": [{"id":"art-1","at":[72,112],"nameplate":[72,76]},{"id":"art-2","at":[122,112],"nameplate":[122,76]}] },
+        { "id": "audio", "cell": [0,1], "name": {"zh":"配音与音效","ko":"음향","en":"Audio"},
+          "match": ["配音","音效","BGM","audio","voice"],
+          "furniture": [["micbooth",30,20],["desk",100,84,88]],
+          "seats": [{"id":"au-1","at":[136,112],"nameplate":[136,76]}] },
+        { "id": "lounge", "cell": [1,1], "name": {"zh":"休息区","ko":"라운지","en":"Lounge"},
+          "match": [],
+          "furniture": [["sofa",44,60,120],["coffeemachine",20,20],["plant",176,24]],
+          "seats": [{"id":"lg-1","at":[70,96],"kind":"rest"},{"id":"lg-2","at":[112,96],"kind":"rest"}] },
+        { "id": "l10n", "cell": [2,1], "name": {"zh":"本地化","ko":"현지화","en":"Localization"},
+          "match": ["翻译","本地化","韩文","英文","i18n","l10n"],
+          "furniture": [["langboard",20,14,168],["desk",30,86,70],["desk",114,86,70]],
+          "seats": [{"id":"l10-1","at":[62,114],"nameplate":[62,78]},{"id":"l10-2","at":[146,114],"nameplate":[146,78]}] },
+        { "id": "assets", "cell": [0,2], "name": {"zh":"素材库","ko":"에셋","en":"Assets"},
+          "match": ["素材","资源","asset","导出"],
+          "furniture": [["assetshelf",20,16,80],["assetshelf",60,16,80],["desk",112,88,76]],
+          "seats": [{"id":"as-1","at":[146,116],"nameplate":[146,80]}] },
+        { "id": "proof", "cell": [1,2], "name": {"zh":"审校", "ko":"교정","en":"Proofing"},
+          "match": ["审校","校对","review","QA"],
+          "furniture": [["paperstack",36,54],["checklist",156,16],["desk",56,90,92]],
+          "seats": [{"id":"pf-1","at":[96,118],"nameplate":[96,82]}] },
+        { "id": "sleep", "cell": [2,2], "name": {"zh":"休眠区","ko":"휴면실","en":"Dormant"},
+          "match": [], "floor_dim": 1,
+          "furniture": [["bed",20,28],["bed",112,28],["bed",20,88],["bed",112,88],["nightlight",96,52]],
+          "seats": [{"id":"bed-1","at":[44,44],"kind":"bed"},{"id":"bed-2","at":[136,44],"kind":"bed"},{"id":"bed-3","at":[44,104],"kind":"bed"},{"id":"bed-4","at":[136,104],"kind":"bed"}] }
+      ]
+    },
+
+    {
+      "id": "liveops6",
+      "name": { "zh": "运营值班室", "ko": "라이브 운영실", "en": "Live Ops" },
+      "for": "Live projects with daily shifts; the scene is dimmed and night lights remain on.",
+      "model": "function",
+      "grid": [3, 2],
+      "canvas": [640, 304],
+      "global_dim": 1,
+      "fallback_zone": "breakroom",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "monitor", "cell": [0,0], "name": {"zh":"监控墙","ko":"모니터링","en":"Monitoring"},
+          "match": ["监控","告警","指标","metrics","alert"],
+          "furniture": [["videowall",18,12,172],["desk",40,88,120]],
+          "seats": [{"id":"mn-1","at":[70,116],"nameplate":[70,80]},{"id":"mn-2","at":[122,116],"nameplate":[122,80]}] },
+        { "id": "support", "cell": [1,0], "name": {"zh":"客服","ko":"고객지원","en":"Support"},
+          "match": ["客服","工单","反馈","support","ticket"],
+          "furniture": [["headsetdesk",28,74],["headsetdesk",116,74],["corkboard",44,14,120]],
+          "seats": [{"id":"sp-1","at":[52,110],"nameplate":[52,68]},{"id":"sp-2","at":[140,110],"nameplate":[140,68]}] },
+        { "id": "events", "cell": [2,0], "name": {"zh":"活动排期","ko":"이벤트 일정","en":"Events"},
+          "match": ["活动","排期","日程","event","schedule"],
+          "furniture": [["calendarwall",20,12,168],["desk",56,88,96]],
+          "seats": [{"id":"ev-1","at":[104,116],"nameplate":[104,80]}] },
+        { "id": "publish", "cell": [0,1], "name": {"zh":"公告与发布","ko":"공지·배포","en":"Publish"},
+          "match": ["公告","热更","发布","hotfix","release"],
+          "furniture": [["checklist",24,16],["conveyor",66,42,120],["box",166,70],["desk",44,90,90]],
+          "seats": [{"id":"pb-1","at":[88,118],"nameplate":[88,82]}] },
+        { "id": "breakroom", "cell": [1,1], "name": {"zh":"值班休息","ko":"휴게실","en":"Break room"},
+          "match": [],
+          "furniture": [["sofa",42,62,124],["coffeemachine",20,18],["nightlight",176,20]],
+          "seats": [{"id":"br-1","at":[70,98],"kind":"rest"},{"id":"br-2","at":[114,98],"kind":"rest"}] },
+        { "id": "sleep", "cell": [2,1], "name": {"zh":"轮班休眠","ko":"교대 휴면","en":"Off shift"},
+          "match": [], "floor_dim": 2,
+          "furniture": [["bed",20,28],["bed",112,28],["bed",20,88],["bed",112,88],["nightlight",96,20],["nightlight",96,80]],
+          "seats": [{"id":"bed-1","at":[44,44],"kind":"bed"},{"id":"bed-2","at":[136,44],"kind":"bed"},{"id":"bed-3","at":[44,104],"kind":"bed"},{"id":"bed-4","at":[136,104],"kind":"bed"}] }
+      ]
+    },
+
+    {
+      "id": "lab6",
+      "name": { "zh": "研究实验室", "ko": "연구실", "en": "Research Lab" },
+      "for": "Data and research workflow: collect → clean → model → visualize → reproduce.",
+      "model": "state",
+      "grid": [3, 2],
+      "canvas": [640, 304],
+      "fallback_zone": "seminar",
+      "idle_zone": "sleep",
+      "zones": [
+        { "id": "collect", "cell": [0,0], "name": {"zh":"采集","ko":"수집","en":"Collect"},
+          "match": ["采集","爬取","raw","collect","调查"],
+          "furniture": [["antenna",40,16],["antenna",140,16],["desk",50,88,108]],
+          "seats": [{"id":"co-1","at":[98,116],"nameplate":[98,80]}] },
+        { "id": "clean", "cell": [1,0], "name": {"zh":"清洗","ko":"정제","en":"Clean"},
+          "match": ["清洗","缺失值","clean","预处理"],
+          "furniture": [["sink",32,40],["sink",120,40],["desk",50,92,108]],
+          "seats": [{"id":"cl-1","at":[98,120],"nameplate":[98,84]}] },
+        { "id": "model", "cell": [2,0], "name": {"zh":"建模","ko":"모델링","en":"Model"},
+          "match": ["建模","回归","模型","DID","estimate"],
+          "furniture": [["blackboard",18,12,172],["desk",30,88,72],["desk",112,88,72]],
+          "seats": [{"id":"md-1","at":[62,116],"nameplate":[62,80]},{"id":"md-2","at":[144,116],"nameplate":[144,80]}] },
+        { "id": "viz", "cell": [0,1], "name": {"zh":"出图与稿件","ko":"시각화·원고","en":"Figures"},
+          "match": ["出图","图表","表格","稿件","draft","figure"],
+          "furniture": [["barchart",24,18,60],["paperstack",150,52],["desk",40,88,100]],
+          "seats": [{"id":"vz-1","at":[86,116],"nameplate":[86,80]}] },
+        { "id": "seminar", "cell": [1,1], "name": {"zh":"讨论区","ko":"세미나","en":"Seminar"},
+          "match": [],
+          "furniture": [["whiteboard",22,12,90],["sofa",42,66,124],["coffeemachine",170,18]],
+          "seats": [{"id":"sm-1","at":[70,100],"kind":"rest"},{"id":"sm-2","at":[114,100],"kind":"rest"}] },
+        { "id": "sleep", "cell": [2,1], "name": {"zh":"休眠区","ko":"휴면실","en":"Dormant"},
+          "match": [], "floor_dim": 1,
+          "furniture": [["bed",20,28],["bed",112,28],["bed",20,88],["bed",112,88],["nightlight",96,52]],
+          "seats": [{"id":"bed-1","at":[44,44],"kind":"bed"},{"id":"bed-2","at":[136,44],"kind":"bed"},{"id":"bed-3","at":[44,104],"kind":"bed"},{"id":"bed-4","at":[136,104],"kind":"bed"}] }
+      ]
+    },
+
+    {
+      "id": "campus12",
+      "name": { "zh": "大编制办公楼", "ko": "대형 오피스", "en": "Campus" },
+      "for": "Teams of 20+; demonstrates that a 4×3 grid requires no furniture-coordinate changes.",
+      "model": "function",
+      "grid": [4, 3],
+      "canvas": [848, 448],
+      "fallback_zone": "lounge",
+      "idle_zone": "sleep",
+      "inherits": "studio9",
+      "inherit_note": "The original nine zones are reused unchanged except for cell placement; the following three zones are new.",
+      "zone_map": {
+        "story": [0,0], "art": [1,0], "frontend": [2,0], "bd": [3,0],
+        "data": [0,1], "lounge": [1,1], "qa": [2,1], "l10n": [3,1],
+        "release": [0,2], "ops": [1,2], "community": [2,2], "sleep": [3,2]
+      },
+      "zones": [
+        { "id": "bd", "cell": [3,0], "name": {"zh":"商务与中介","ko":"제휴·중개","en":"BD"},
+          "match": ["商务","中介","房源","BD","partner"],
+          "furniture": [["corkboard",22,12,164],["desk",44,84,120]],
+          "seats": [{"id":"bd-1","at":[74,112],"nameplate":[74,76]},{"id":"bd-2","at":[122,112],"nameplate":[122,76]}] },
+        { "id": "l10n", "cell": [3,1], "name": {"zh":"本地化","ko":"현지화","en":"Localization"},
+          "match": ["翻译","本地化","i18n"],
+          "furniture": [["langboard",20,14,168],["desk",56,88,96]],
+          "seats": [{"id":"l10-1","at":[92,116],"nameplate":[92,80]}] },
+        { "id": "community", "cell": [2,2], "name": {"zh":"社区与客服","ko":"커뮤니티","en":"Community"},
+          "match": ["社区","客服","反馈","community"],
+          "furniture": [["headsetdesk",30,74],["headsetdesk",118,74],["videowall",44,12,120]],
+          "seats": [{"id":"cm-1","at":[54,110],"nameplate":[54,68]},{"id":"cm-2","at":[142,110],"nameplate":[142,68]}] }
+      ]
+    }
+  ],
+
+  "flow_schema": {
+    "note": "The workflow is the source of truth for state-model offices. Work steps become rooms; queue steps fold into the doorway pile of their downstream work room.",
+    "onboarding": {
+      "mode": "play_first_progressive_connect",
+      "before_connection": "Start with the interactive demo and manual drag events.",
+      "after_connection": "Replace estimated skins with measured Linear history without resetting the office."
+    },
+    "source_contracts": {
+      "linear": {
+        "workflow_state_type": {
+          "graphql_type": "String!",
+          "is_enum": false,
+          "discover_on_connect": true,
+          "known_categories": ["triage", "backlog", "unstarted", "started", "completed", "canceled", "duplicate"],
+          "unknown_category": "keep unmapped and request confirmation",
+          "verified_by": "anonymous GraphQL introspection against https://api.linear.app/graphql on 2026-08-20"
+        },
+        "history_fields": ["fromState", "toState", "fromAssignee", "toAssignee", "actor"],
+        "history_fields_verified": true
+      }
+    },
+    "kinds": {
+      "queue": "Entering emits arrive and starts business-time waiting.",
+      "work": "Entering emits start and begins touch time.",
+      "terminal": "Entering emits done."
+    },
+    "linear_default_mapping": {
+      "triage": "outside_flow",
+      "backlog": "outside_flow",
+      "unstarted": "queue",
+      "started": "work",
+      "completed": "terminal",
+      "canceled": "terminal",
+      "duplicate": "terminal"
+    },
+    "example": {
+      "id": "flow_pixel_team_studio",
+      "source": "linear",
+      "calendar": {
+        "tz": "Asia/Seoul",
+        "work_days": [1, 2, 3, 4, 5],
+        "work_hours": ["10:00", "19:00"],
+        "holiday_region": "KR"
+      },
+      "steps": [
+        { "id": "ready", "kind": "queue", "depends_on": [], "source_states": ["Todo"] },
+        { "id": "build", "kind": "work", "depends_on": ["ready"], "source_states": ["In Progress"] },
+        { "id": "review_q", "kind": "queue", "depends_on": ["build"], "source_states": ["Ready for review"] },
+        { "id": "review", "kind": "work", "depends_on": ["review_q"], "source_states": ["In Review"] },
+        { "id": "ship", "kind": "terminal", "depends_on": ["review"], "source_states": ["Done"] }
+      ],
+      "rework_edges": [["review", "build"]],
+      "start_proxy": "assignee_set",
+      "wip_limits": { "build": 5, "review": 3 }
+    }
+  },
+
+  "layout_derivation": {
+    "algorithm": [
+      "Only kind=work steps receive rooms; fold every queue into the doorway pile of its downstream work step.",
+      "Assign work steps to ASAP topological layers: layer=0 without dependencies, otherwise max(dependency layer)+1.",
+      "Use layer as column and stable order inside the layer as row.",
+      "Set grid to [max layer + 1, widest layer], adding one column only when rest or sleep rooms do not fit.",
+      "Place the rest room in the empty cell nearest the geometric center and the sleep room at bottom right.",
+      "Compute canvas with [cols*208+16, rows*144+16]; furniture coordinates remain cell-relative."
+    ],
+    "why_queue_folds": "A queue is waiting work, not a place occupied by a person. Giving it a room would exaggerate the number of serial work stages.",
+    "payoff": "Office length becomes a readable signal for serial workflow depth; making two steps parallel can immediately shorten the map.",
+    "compact_mode": { "threshold_cols": 4, "style": "boustrophedon", "floor_arrows": true }
+  },
+
+  "metrics": {
+    "time_basis": "business_hours",
+    "wait": "start_ts - arrive_ts; for work not yet started use now - arrive_ts and censored=true",
+    "touch": "done_ts - start_ts; for unfinished work use now - start_ts",
+    "backlog_area": {
+      "formula": "sum(wait_hours) over tasks currently waiting in the zone",
+      "identity": "Equivalent to the area between arrival and departure curves and to the integral of queue length over time.",
+      "unit": "item-hours"
+    },
+    "flow_efficiency": {
+      "formula": "touch / (touch + wait)",
+      "display": "Tasks in this zone spend {100-x}% of their time waiting rather than being worked on."
+    },
+    "bottleneck": {
+      "score": "backlog_area",
+      "rule": "Highlight exactly one current constraint, once minimum evidence is met.",
+      "min_sample": { "observed_tasks": 8, "observed_days": 5 },
+      "chronic": "The same zone ranks first for five consecutive ticks.",
+      "diagnosis_matrix": [
+        { "pile": "high", "member": "fast_and_sweating", "verdict": "capacity_constraint", "action": "add capacity or split the step" },
+        { "pile": "high", "member": "slow_and_calm", "verdict": "capacity_allocated_elsewhere", "action": "inspect cross-zone support and block events" },
+        { "pile": "empty", "member": "waiting", "verdict": "starved", "action": "inspect upstream" },
+        { "pile": "all_high", "member": "most_sweating", "verdict": "system_overload", "action": "reduce total WIP" }
+      ]
+    },
+    "censoring": {
+      "right": "Include elapsed waiting for tasks with no start event; completed-only averages understate the worst queues.",
+      "left": "Left-truncated tasks already queued at connection time show waited >= X with provenance=truncated until they drain.",
+      "robust_stat": "Prefer maximum current wait; use Kaplan-Meier when a distribution is required."
+    }
+  },
+
+  "rendering": {
+    "queue_pile": {
+      "anchor": "downstream work-room entry_door",
+      "height": "render min(queue_length, 8) boxes and show xN above the cap",
+      "aging_from": "maximum wait_hours among queued tasks",
+      "aging_tiers": [
+        { "max_h": 8, "skin": "new" },
+        { "max_h": 24, "skin": "dusty" },
+        { "max_h": 72, "skin": "cobweb" },
+        { "max_h": null, "skin": "cracked_faded" }
+      ],
+      "encoding": "Height represents count; aging represents the oldest wait."
+    },
+    "provenance_skins": {
+      "measured": "solid box",
+      "estimated": "dashed translucent box",
+      "truncated": "cracked box",
+      "no_data": "gray empty-box outline with Not connected; never render missing data as a clean floor"
+    },
+    "corridor_conveyor": {
+      "speed_from": "observed throughput on the edge",
+      "idle_means": "upstream starvation"
+    },
+    "member": {
+      "identity_mode": "one bird per person; task count never creates identity clones",
+      "demo_compatibility": "The current task-actor clone demo remains available as a separate visualization mode.",
+      "cross_zone": "When one member has active work in multiple zones, rotate the single identity bird through those zones.",
+      "allocation_weight": "Use explicit task workShare or estimate when present; otherwise every active issue contributes one equal weight.",
+      "dwell_ratio": "Settled office time is proportional to zone allocation weight; 40:60 produces 40% and 60% dwell time. Corridor transit is excluded from both shares.",
+      "multi_member_zone": "Render every current member in a separate seat and show a compact zone roster when two or more people share an office.",
+      "speed_axis": "tasks advanced in the last 24 business hours divided by the member's 30-day median",
+      "sweat_axis": "max(hand WIP / WIP limit, oldest blocked hours / 24)",
+      "pose_source": "Use the existing 32-frame bird sheet; run and fly are real poses, while settled idle/work/sit/sleep remain non-translating loops."
+    },
+    "migration": {
+      "applies_to": "layout.model == 'state'",
+      "trigger": "event-driven task state diffs move a bird once; multi-zone identity allocation additionally runs a deterministic weighted rotation schedule",
+      "path": "exit_door -> corridor_lane -> entry_door; no pathfinding",
+      "transit_accounting": "exclude from both busy and slack",
+      "block": "settled at the next doorway, facing forward, with a BLOCK bubble; at most a two-frame foot tap without translation",
+      "rework": "move backward at reduced speed with a red back arrow and backward-facing direction"
+    }
+  },
+
+  "picker": {
+    "flow": "Three questions select a recommended layout ID; users may skip them and choose manually.",
+    "questions": [
+      { "q": "How many people are working now?", "options": { "1-3": "solo4", "4-12": null, "13+": "campus12" } },
+      { "q": "Is work organized by ownership or by workflow state?", "options": { "Function": "studio9", "Workflow state": "sprint6" } },
+      { "q": "Does the team have a specialized focus?", "options": { "Story / multilingual": "content9", "Live operations": "liveops6", "Data / research": "lab6", "None": "studio9" } }
+    ],
+    "custom": "Custom mode: an empty 2×2 to 4×3 grid plus a draggable zone library. Each zone is an independent 208×144 slice, so the frontend can compose layouts without rerunning pixeloffice.py."
+  },
+
+  "constraints": {
+    "required_zones": ["idle_zone must exist because sleeping actors need a destination", "fallback_zone must exist for cross-zone support and unmatched tasks"],
+    "unmatched_task": "When no tag matches a zone, use fallback_zone and show Cross-zone support; state models show Unclassified instead.",
+    "seat_overflow": "When actor clones exceed a zone's seats, add positions along the zone edge without overlapping.",
+    "labels": "Zone labels are not baked into PNGs; the HTML overlay reads zh/ko/en from name."
+  }
+}

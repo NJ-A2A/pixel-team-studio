@@ -1,6 +1,6 @@
 {
  "size": 32,
- "cols": 8,
+ "cols": 32,
  "anim": {
   "idle": [
    0,
@@ -13,91 +13,204 @@
    5,
    6,
    7
+  ],
+  "run": [
+   8,
+   9,
+   10,
+   11,
+   12,
+   13
+  ],
+  "work": [
+   14,
+   15,
+   16,
+   17
+  ],
+  "sit": [
+   18,
+   19,
+   20,
+   21
+  ],
+  "sleep": [
+   22,
+   23,
+   24,
+   25
+  ],
+  "fly": [
+   26,
+   27,
+   28,
+   29,
+   30,
+   31
   ]
  },
  "fps": {
   "idle": 4,
-  "walk": 8
+  "walk": 8,
+  "run": 14,
+  "work": 7,
+  "sit": 3,
+  "sleep": 2,
+  "fly": 11
  },
  "facing": "right",
  "birds": [
   {
    "id": "albatross",
-   "zh": "信天翁",
-   "en": "Albatross",
+   "zh": "漂泊信天翁",
+   "type": "漫游型",
    "row": 0
   },
   {
    "id": "bowerbird",
-   "zh": "园丁鸟",
-   "en": "Bowerbird",
+   "zh": "缎蓝园丁鸟",
+   "type": "清单型",
    "row": 1
   },
   {
    "id": "crane",
    "zh": "丹顶鹤",
-   "en": "Crane",
+   "type": "舞台型",
    "row": 2
+  },
+  {
+   "id": "crow",
+   "zh": "美洲乌鸦",
+   "type": "记忆型",
+   "row": 3
   },
   {
    "id": "falcon",
    "zh": "游隼",
-   "en": "Falcon",
-   "row": 3
-  },
-  {
-   "id": "hummingbird",
-   "zh": "蜂鸟",
-   "en": "Hummingbird",
+   "type": "尽兴型",
    "row": 4
   },
   {
-   "id": "magpie",
-   "zh": "喜鹊",
-   "en": "Magpie",
+   "id": "hummingbird",
+   "zh": "红喉北蜂鸟",
+   "type": "冲刺型",
    "row": 5
   },
   {
-   "id": "nutcracker",
-   "zh": "星鸦",
-   "en": "Nutcracker",
+   "id": "lorikeet",
+   "zh": "彩虹吸蜜鹦鹉",
+   "type": "续杯型",
    "row": 6
   },
   {
-   "id": "pigeon",
-   "zh": "鸽子",
-   "en": "Pigeon",
+   "id": "magpie",
+   "zh": "韩国喜鹊",
+   "type": "赖韩型",
    "row": 7
   },
   {
-   "id": "sparrow",
-   "zh": "麻雀",
-   "en": "Sparrow",
+   "id": "nutcracker",
+   "zh": "克拉克星鸦",
+   "type": "收藏型",
    "row": 8
+  },
+  {
+   "id": "pigeon",
+   "zh": "信鸽",
+   "type": "回家型",
+   "row": 9
+  },
+  {
+   "id": "raven",
+   "zh": "渡鸦",
+   "type": "随性型",
+   "row": 10
+  },
+  {
+   "id": "sparrow",
+   "zh": "家麻雀",
+   "type": "日常型",
+   "row": 11
+  },
+  {
+   "id": "starling",
+   "zh": "欧椋鸟",
+   "type": "续摊型",
+   "row": 12
   },
   {
    "id": "swallow",
    "zh": "家燕",
-   "en": "Swallow",
-   "row": 9
+   "type": "归属型",
+   "row": 13
   },
   {
    "id": "swift",
    "zh": "雨燕",
-   "en": "Swift",
-   "row": 10
+   "type": "直行型",
+   "row": 14
   },
   {
    "id": "tern",
-   "zh": "燕鸥",
-   "en": "Tern",
-   "row": 11
+   "zh": "北极燕鸥",
+   "type": "打卡型",
+   "row": 15
   },
   {
    "id": "tit",
-   "zh": "山雀",
-   "en": "Tit",
-   "row": 12
+   "zh": "长尾山雀",
+   "type": "社交型",
+   "row": 16
   }
- ]
+ ],
+ "fx": {
+  "cols": 3,
+  "rows": [
+   {
+    "id": "none",
+    "frames": 1,
+    "row": 0
+   },
+   {
+    "id": "sweat1",
+    "frames": 2,
+    "row": 1
+   },
+   {
+    "id": "sweat2",
+    "frames": 2,
+    "row": 2
+   },
+   {
+    "id": "sweat3",
+    "frames": 2,
+    "row": 3
+   },
+   {
+    "id": "zzz",
+    "frames": 2,
+    "row": 4
+   },
+   {
+    "id": "dots",
+    "frames": 3,
+    "row": 5
+   },
+   {
+    "id": "dizzy",
+    "frames": 2,
+    "row": 6
+   },
+   {
+    "id": "spark",
+    "frames": 2,
+    "row": 7
+   },
+   {
+    "id": "bandage",
+    "frames": 1,
+    "row": 8
+   }
+  ]
+ }
 }

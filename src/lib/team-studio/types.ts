@@ -53,6 +53,7 @@ export type TeamTask = {
   status: TeamTaskStatus
   lastUpdateMinutes: number
   due: string
+  workShare?: number
   note?: string
 }
 

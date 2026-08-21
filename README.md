@@ -1,52 +1,79 @@
-# NestLinker Team Studio
+# Pixel Team Studio
 
-> 一个开源的像素团队工作室：让 AI Agent 和团队成员的任务、位置、KPI、等待状态与日程变得一眼可见。
+> An open-source pixel office that makes AI-agent and team work visible: tasks, positions, KPIs, blockers, and schedules at a glance.
 
-[![CI](https://github.com/NJforYunman/nestlinker-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJforYunman/nestlinker-team-studio/actions/workflows/ci.yml)
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+[![CI](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](LICENSE)
 
-![Pixel office map](docs/office-map.png)
+![Pixel Team Studio interface](docs/studio-preview.png)
 
-NestLinker Team Studio 把抽象的工作流变成一间会动的 2D 办公室。每个职责区有固定负责人，真正执行任务的角色会根据任务位置移动；一个成员并行处理多项任务时会生成分身，等待 Review 或外部输入时会停步，长时间没有更新则会走到休眠区。
+Pixel Team Studio turns an abstract workflow into a living 2D office. The office is not tied to a fixed department map: choose a `3×3`, `2×4`, `3×2`, `1×8`, or custom grid, then arrange rooms around your delivery process.
 
-## 功能
+Position is data. A member with work in one office stays there. A member with active work across several offices keeps one identity bird and rotates through those rooms; active task weight controls dwell time, while corridor transit is accounted separately.
 
-- 1280×896 九区像素办公室
-- 13 种 32×32 像素鸟，每种包含 4 帧待机和 4 帧行走动画
-- 固定负责人、当前执行者和跨区支援分离
-- 并行任务自动生成角色分身
-- 工位巡走、跨区通勤和入睡路径动画
-- 忙碌、正常、摸鱼偏高、等待、阻塞和休眠状态
-- 成员 KPI、项目指标、任务详情和团队周历
-- 可调休眠阈值、时间推进和模拟事件
-- 为 Codex MCP、Hooks、GitHub Webhooks 和日历事件预留统一状态层
+## Features
 
-## 快速开始
+- Configurable office grids: `3×3`, `2×4`, `3×2`, `1×8`, and custom `1–4 rows × 1–8 columns` layouts
+- Swappable department slots, per-cell row/column selectors, empty rooms, an unplaced-room tray, and selectable workflow templates
+- Visible corridor lanes between every row and column of offices
+- Room-bound office artwork: furniture backgrounds travel with Product, Frontend, QA, Release, and every other room when layouts change
+- Versioned browser persistence; moving a room never changes its logical tasks or KPIs
+- Fit-to-viewport pixel-office scene that keeps the complete floor visible at every grid size
+- 17 distinct animated 32×32 pixel birds, selectable manually or through a three-question team casting game
+- Separate logical owners, active executors, and cross-zone support
+- Weighted one-bird rotation across multiple active offices, with separate seats and a roster whenever several people share a room
+- Automatic actor clones for parallel tasks
+- Event-driven one-shot movement: `settled → transit → settled`, with no looping patrols
+- Doorway anchors and deterministic corridor routes; no A* pathfinding required
+- BLOCK actors remain still at the next doorway; review rollbacks use slower movement and a red return marker
+- Transit time is tracked separately and excluded from busy/slack scoring
+- Busy, steady, low-activity, waiting, blocked, and sleeping states
+- Member KPIs, project metrics, task details, and a team calendar
+- A dedicated compact office route, standalone pop-up, and Manifest V3 browser extension for draggable overlays or a native side panel
+- An upper-left meeting room with an AI idea inbox, human-reviewed brainstorm board, Markdown/memo materials, references, and meeting-summary drafts
+- Adjustable sleep thresholds, time advancement, and simulated events
+- Play-first onboarding with progressive Linear connection and visible measured/estimated/no-data provenance
+- Queue piles encode count and oldest wait separately; business-time flow efficiency and backlog-area rules are documented
+- A unified state layer ready for Codex MCP, Hooks, GitHub webhooks, and calendar events
+- Built-in Chinese, Korean, and English UI switching, shared by the full studio, compact widget, layout editor, and meeting room
 
-需要 Node.js 22+ 和 pnpm。
+## Quick start
+
+Requires Node.js 22+ and pnpm.
 
 ```bash
-git clone https://github.com/NJforYunman/nestlinker-team-studio.git
-cd nestlinker-team-studio
+git clone https://github.com/NJ-A2A/pixel-team-studio.git
+cd pixel-team-studio
 pnpm install
 pnpm dev
 ```
 
-打开终端显示的本机地址即可。
+Open the local URL printed by Vite.
 
-## 项目结构
+Open `http://localhost:5174/?view=widget&source=linear` for the compact office only, or click **Open floating office** in the full studio. To keep it over Claude, ChatGPT, Linear, or another website, load `browser-extension/` as an unpacked Chrome/Edge extension. See [Floating Office Widget](docs/FLOATING_WIDGET.md).
+
+## Project structure
 
 ```text
-src/components/team-studio/   页面与像素动画
-src/lib/team-studio/          成员、任务、活动分和角色实例模型
-public/team-studio/           像素鸟与办公室素材
-docs/REALTIME_INTEGRATION.md   MCP、Hooks、Webhook 与 SSE 接入建议
-tests/                        状态与地图回归测试
+src/components/team-studio/   Page, controls, drawers, and pixel animation
+src/lib/team-studio/          Members, tasks, activity scoring, layouts, and movement state
+public/team-studio/           Pixel-bird and office assets
+public/team-studio/office/office_layouts.json  Functional/state layout definitions and anchors
+docs/REALTIME_INTEGRATION.md   MCP, Hooks, webhooks, SSE, permissions, and privacy
+docs/MCP_INTEGRATION.md        Runnable Codex/Claude MCP setup and safe write-tool boundaries
+docs/INGEST_LINEAR.md          Verified Linear schema, OAuth, backfill, webhooks, and flow metrics
+docs/LINEAR_EXAMPLES.md        Sanitized Linear snapshot and worked transition examples
+docs/FLOATING_WIDGET.md        Codex panel, standalone pop-up, and browser-extension setup
+docs/MEETING_ROOM.md           AI idea intake, human review, Markdown materials, and shared-event contract
+browser-extension/             Draggable overlay and Chrome/Edge side-panel shell
+tests/                        State-machine and map regression tests
 ```
 
-## 如何接入真实状态
+## Connect real team state
 
-默认页面使用可交互演示数据。正式版本建议统一接入：
+The bundled app uses interactive demo data. A production integration should normalize all sources into one event stream:
 
 ```text
 Codex MCP / Codex Hooks / GitHub / Calendar
@@ -58,34 +85,50 @@ Codex MCP / Codex Hooks / GitHub / Calendar
              Pixel Office UI
 ```
 
-详细事件模型、权限和隐私建议见 [Real-time integration](docs/REALTIME_INTEGRATION.md)。
+Start with the runnable [Codex/Claude MCP example](examples/mcp-server/README.md), then read [MCP integration](docs/MCP_INTEGRATION.md) for the write-approval model. [Linear worked examples](docs/LINEAR_EXAMPLES.md) includes a safe local snapshot you can open immediately; [Linear-first flow ingestion](docs/INGEST_LINEAR.md) contains the full schema, OAuth, historical backfill, and measurement contract.
 
-## 自定义
+### MCP + Linear in two minutes
 
-- 在 `src/lib/team-studio/demo-data.ts` 修改成员、任务、KPI 和日历。
-- 在 `TEAM_ZONES` 修改职责区域和负责人。
-- 在 `actor-instances.ts` 修改角色座位。
-- 替换 `public/team-studio/office/office-map.png` 可使用自己的办公室底图。
-- 像素鸟条带遵循 `idle 0–3 / walk 4–7` 帧约定。
+```bash
+# 1. Load fictional Linear data (the destination is intentionally gitignored)
+cp public/team-studio/linear-snapshot.example.json \
+   public/team-studio/linear-snapshot.local.json
+
+# 2. Run the studio and open http://localhost:5174/?source=linear
+pnpm dev
+
+# 3. In another terminal, install and register the local MCP server
+pnpm --dir examples/mcp-server install
+codex mcp add pixel-team-studio -- \
+  pnpm --dir "$PWD/examples/mcp-server" start
+```
+
+The MCP server exposes `team_get_state`, `team_start_task`, `team_update_progress`, `team_report_blocker`, and `team_complete_task`. It writes append-only sanitized events locally by default, or posts them to `TEAM_EVENTS_URL` in production.
+
+## Customize
+
+- Edit members, tasks, KPIs, and calendar events in `src/lib/team-studio/demo-data.ts`.
+- Open **Edit room layout** from the map toolbar to reveal the separate layout editor; grid presets, workflow templates, the row/column matrix, and the unplaced tray stay hidden during normal monitoring.
+- Edit logical responsibility zones and owners in `TEAM_ZONES`; `studio-layout.ts` generates map coordinates.
+- Edit layout presets, capacity, and room sizes in `studio-layout.ts`.
+- Edit the process order, doorway anchors, BLOCK behavior, and rollback rules for `model: "state"` layouts in `office_layouts.json`.
+- Edit task diffs, one-shot transit routes, and accounting boundaries in `flow-motion.ts`.
+- Edit adaptive actor positions in `actor-instances.ts`.
+- Replace `public/team-studio/office/office-map.png` to use your own office background.
+- Pixel-bird strips use the frame convention `idle 0–3 / walk 4–7 / run 8–13 / work 14–17 / sit 18–21 / sleep 22–25 / fly 26–31`.
+- Use **Choose team birds** to run the short work-style casting game or select any of the 17 birds manually. Appearance choices are stored locally and do not change Linear identity or task data.
+- The current asset contract remains 32×32. Extra-long beaks use the compact run/fly geometry supplied by the kit; moving to 40×40 is intentionally deferred as a breaking sprite-format change.
 
 ![Pixel birds](docs/birds-sheet.png)
 
-## 负责任地使用
+## Responsible use
 
-活动频率不是绩效。等待用户、等待 Review、等待 CI、会议、休假和外部阻塞都不应被计算为“摸鱼”。请勿把本项目作为员工监控或单一绩效判断工具，也不要采集代码正文、提示词、完整终端输出或私人日历内容。
+Activity frequency is not performance. Waiting for a user, review, CI, a meeting, leave, or an external dependency must not be counted as “slacking.” Do not use this project as employee surveillance or as a single-source performance score. Never collect source code, prompts, complete terminal output, secrets, or private calendar details.
 
 ## Contributing
 
-欢迎提交 Issue 和 Pull Request。参见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 NJ_A2A and NestLinker contributors.
-
----
-
-## English
-
-NestLinker Team Studio is an open-source pixel office for visualizing AI agents and team workflows. It separates role ownership from current execution, creates actor clones for parallel tasks, animates cross-zone movement, and exposes task progress, KPI signals and schedules in one interactive view.
-
-The bundled app runs with demo data. See [Real-time integration](docs/REALTIME_INTEGRATION.md) for a suggested Codex MCP + Hooks + GitHub + SSE architecture.
+[MIT](LICENSE) © 2026 NJ_A2A contributors.
