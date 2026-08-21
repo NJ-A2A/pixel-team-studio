@@ -7,7 +7,7 @@
 [![CI](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](LICENSE)
 
-![像素办公室地图](docs/office-map.png)
+![Pixel Team Studio 中文界面](docs/studio-preview-zh.png)
 
 Pixel Team Studio 把抽象工作流变成一间会动的二维办公室。部门并不固定在某个格子里：你可以选择 `3×3`、`2×4`、`3×2`、`1×8` 或自定义网格，再按照团队实际流程安排每个办公室。
 
@@ -55,7 +55,9 @@ src/lib/team-studio/          成员、任务、状态评分、布局和移动�
 public/team-studio/           像素鸟和办公室资源
 public/team-studio/office/office_layouts.json  布局、门口锚点和状态规则
 docs/REALTIME_INTEGRATION.md   MCP、Hooks、Webhook、SSE、权限与隐私
+docs/MCP_INTEGRATION.zh-CN.md  可运行的 Codex/Claude MCP 接入与写操作权限边界
 docs/INGEST_LINEAR.md          Linear schema、OAuth、历史回填和流动指标
+docs/LINEAR_EXAMPLES.zh-CN.md  脱敏 Linear 快照与状态流转示例
 docs/FLOATING_WIDGET.md        Codex 面板、独立浮窗和浏览器扩展
 docs/MEETING_ROOM.md           AI 想法、人工确认、资料与共享事件格式
 browser-extension/             网页悬浮层和 Chrome/Edge 侧边栏扩展
@@ -76,7 +78,25 @@ Codex MCP / Codex Hooks / GitHub / Calendar
              Pixel Office UI
 ```
 
-实时事件模型见[实时接入说明](docs/REALTIME_INTEGRATION.md)，Linear 的 schema、OAuth、历史回填和指标口径见[Linear 接入说明](docs/INGEST_LINEAR.md)。
+先运行 [Codex/Claude MCP 示例](examples/mcp-server/README.zh-CN.md)，再阅读 [MCP 接入说明](docs/MCP_INTEGRATION.zh-CN.md)了解写操作授权边界。[Linear 示例](docs/LINEAR_EXAMPLES.zh-CN.md)提供可以立即打开的脱敏快照；完整 schema、OAuth、历史回填与指标口径见[Linear 接入说明](docs/INGEST_LINEAR.md)。
+
+### 两分钟体验 MCP + Linear
+
+```bash
+# 1. 载入虚构 Linear 数据（目标文件已被 Git 忽略）
+cp public/team-studio/linear-snapshot.example.json \
+   public/team-studio/linear-snapshot.local.json
+
+# 2. 启动后打开 http://localhost:5174/?source=linear
+pnpm dev
+
+# 3. 在另一个终端安装并注册本地 MCP Server
+pnpm --dir examples/mcp-server install
+codex mcp add pixel-team-studio -- \
+  pnpm --dir "$PWD/examples/mcp-server" start
+```
+
+示例 MCP Server 提供 `team_get_state`、`team_start_task`、`team_update_progress`、`team_report_blocker` 和 `team_complete_task`。默认只在本地追加脱敏事件；生产环境可通过 `TEAM_EVENTS_URL` 发给实时事件 API。
 
 ## 自定义
 

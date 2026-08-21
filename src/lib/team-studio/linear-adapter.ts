@@ -45,12 +45,6 @@ export type LinearStudioData = {
   summary: LinearStudioSummary
 }
 
-const memberProfiles: Record<string, { bird: string; species: string; zone: string; role: string }> = {
-  'NJ LEE': { bird: 'crane', species: 'Red-crowned Crane', zone: 'story', role: 'Founder · Linear workflow owner' },
-  Srzzz: { bird: 'swift', species: 'Swift', zone: 'frontend', role: 'Software delivery' },
-  'SHI WENLONG': { bird: 'tern', species: 'Arctic Tern', zone: 'ops', role: 'Team operations' },
-  '金海旻': { bird: 'tit', species: 'Long-tailed Tit', zone: 'visual', role: 'Team member' },
-}
 const fallbackBirds = ['sparrow', 'pigeon', 'falcon', 'bowerbird']
 const fallbackZones = ['story', 'frontend', 'ops', 'visual']
 
@@ -94,7 +88,7 @@ function weightedProgress(issues: LinearSnapshot['issues']) {
 export function adaptLinearSnapshot(snapshot: LinearSnapshot): LinearStudioData {
   const snapshotTime = snapshot.generatedAt
   const members = snapshot.members.map<TeamMember>((sourceMember, index) => {
-    const profile = memberProfiles[sourceMember.name] ?? {
+    const profile = {
       bird: fallbackBirds[index % fallbackBirds.length],
       species: 'Studio Bird',
       zone: fallbackZones[index % fallbackZones.length],

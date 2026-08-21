@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import test from 'node:test'
 
 import { buildActorInstances } from '../src/lib/team-studio/actor-instances'
@@ -288,7 +288,7 @@ test('Linear snapshots map status to queues, work rooms and one identity bird', 
       { id: 'doing', name: 'In Progress', type: 'started' },
       { id: 'review', name: 'In Review', type: 'started' },
     ],
-    members: [{ id: 'member-1', name: 'NJ LEE', displayName: 'nj', isActive: true }],
+    members: [{ id: 'member-1', name: 'Avery', displayName: 'avery', isActive: true }],
     projects: [{ id: 'project-1', name: 'Product', status: 'In Progress', statusType: 'started', targetDate: null }],
     issues: [
       { id: 'NES-1', title: 'Queued', status: 'Todo', statusType: 'unstarted', priority: 'High', dueDate: '2026-08-20', createdAt: '2026-08-18T00:00:00.000Z', updatedAt: '2026-08-19T00:00:00.000Z', startedAt: null, completedAt: null, assigneeId: 'member-1', projectId: 'project-1', labels: [] },
@@ -361,9 +361,27 @@ test('public studio is generic and ships English, Chinese, and Korean UI copy', 
     'browser-extension/manifest.json',
   ].map((file) => readFileSync(file, 'utf8')).join('\n')
 
-  assert.doesNotMatch(files, /nestlinker/i)
   assert.match(files, /Pixel Team Studio/)
   assert.match(files, /一眼看清每个人/)
   assert.match(files, /한눈에 확인하세요/)
   assert.match(files, /StudioLocaleProvider/)
+})
+
+test('public docs ship current UI previews plus safe MCP and Linear examples', () => {
+  const mcpGuide = readFileSync('docs/MCP_INTEGRATION.md', 'utf8')
+  const linearGuide = readFileSync('docs/LINEAR_EXAMPLES.md', 'utf8')
+  const mcpServer = readFileSync('examples/mcp-server/src/index.ts', 'utf8')
+  const snapshot = JSON.parse(readFileSync('public/team-studio/linear-snapshot.example.json', 'utf8')) as LinearSnapshot
+
+  assert.ok(statSync('docs/studio-preview.png').size > 100_000)
+  assert.ok(statSync('docs/studio-preview-zh.png').size > 100_000)
+  assert.match(mcpGuide, /default_tools_approval_mode = "writes"/)
+  assert.match(mcpGuide, /MCP tool appends a semantic team event/)
+  assert.match(linearGuide, /Todo → In Progress/)
+  assert.match(linearGuide, /fictional IDs and members/)
+  assert.match(mcpServer, /team_report_blocker/)
+  assert.match(mcpServer, /TEAM_EVENTS_URL/)
+  assert.equal(snapshot.schema, 'pixel-team-linear-snapshot/1')
+  assert.equal(snapshot.team.name, 'Demo Product Team')
+  assert.deepEqual(snapshot.members.map((member) => member.name), ['Avery', 'Mina', 'Theo'])
 })

@@ -7,7 +7,7 @@
 [![CI](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](LICENSE)
 
-![Pixel office map](docs/office-map.png)
+![Pixel Team Studio interface](docs/studio-preview.png)
 
 Pixel Team Studio turns an abstract workflow into a living 2D office. The office is not tied to a fixed department map: choose a `3×3`, `2×4`, `3×2`, `1×8`, or custom grid, then arrange rooms around your delivery process.
 
@@ -62,7 +62,9 @@ src/lib/team-studio/          Members, tasks, activity scoring, layouts, and mov
 public/team-studio/           Pixel-bird and office assets
 public/team-studio/office/office_layouts.json  Functional/state layout definitions and anchors
 docs/REALTIME_INTEGRATION.md   MCP, Hooks, webhooks, SSE, permissions, and privacy
+docs/MCP_INTEGRATION.md        Runnable Codex/Claude MCP setup and safe write-tool boundaries
 docs/INGEST_LINEAR.md          Verified Linear schema, OAuth, backfill, webhooks, and flow metrics
+docs/LINEAR_EXAMPLES.md        Sanitized Linear snapshot and worked transition examples
 docs/FLOATING_WIDGET.md        Codex panel, standalone pop-up, and browser-extension setup
 docs/MEETING_ROOM.md           AI idea intake, human review, Markdown materials, and shared-event contract
 browser-extension/             Draggable overlay and Chrome/Edge side-panel shell
@@ -83,7 +85,25 @@ Codex MCP / Codex Hooks / GitHub / Calendar
              Pixel Office UI
 ```
 
-See [Real-time integration](docs/REALTIME_INTEGRATION.md) for the shared event model and [Linear-first flow ingestion](docs/INGEST_LINEAR.md) for the verified schema contract, OAuth, historical backfill, progressive connection, and measurement rules.
+Start with the runnable [Codex/Claude MCP example](examples/mcp-server/README.md), then read [MCP integration](docs/MCP_INTEGRATION.md) for the write-approval model. [Linear worked examples](docs/LINEAR_EXAMPLES.md) includes a safe local snapshot you can open immediately; [Linear-first flow ingestion](docs/INGEST_LINEAR.md) contains the full schema, OAuth, historical backfill, and measurement contract.
+
+### MCP + Linear in two minutes
+
+```bash
+# 1. Load fictional Linear data (the destination is intentionally gitignored)
+cp public/team-studio/linear-snapshot.example.json \
+   public/team-studio/linear-snapshot.local.json
+
+# 2. Run the studio and open http://localhost:5174/?source=linear
+pnpm dev
+
+# 3. In another terminal, install and register the local MCP server
+pnpm --dir examples/mcp-server install
+codex mcp add pixel-team-studio -- \
+  pnpm --dir "$PWD/examples/mcp-server" start
+```
+
+The MCP server exposes `team_get_state`, `team_start_task`, `team_update_progress`, `team_report_blocker`, and `team_complete_task`. It writes append-only sanitized events locally by default, or posts them to `TEAM_EVENTS_URL` in production.
 
 ## Customize
 

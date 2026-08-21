@@ -70,6 +70,8 @@ Use MCP for intentional, semantic task updates. A minimal server can expose:
 - `team_complete_task`
 - `team_get_my_tasks`
 
+For commands, approval boundaries, a runnable TypeScript server, Claude Code setup, and a Linear + MCP example, see [MCP integration](MCP_INTEGRATION.md).
+
 ## Codex Hooks
 
 Use Hooks to capture real actions automatically:
