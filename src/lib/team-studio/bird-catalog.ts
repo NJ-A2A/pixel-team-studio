@@ -24,4 +24,4 @@ export const BIRD_CATALOG: BirdProfile[] = [
   { id: 'tit', species: 'Long-tailed Tit', archetype: 'craft' },
 ]
 
-export const BIRD_ASSIGNMENTS_STORAGE_KEY = 'nestlinker-team-studio:bird-assignments:v1'
+export const BIRD_ASSIGNMENTS_STORAGE_KEY = 'pixel-team-studio:bird-assignments:v1'

@@ -14,7 +14,7 @@ AI suggestions never become decisions automatically. **Send to board** is the ex
 
 ## Local prototype
 
-Meeting items are saved under `nestlinker-team-studio:meeting-room:v1` in browser local storage. The composer accepts ideas, memos, materials, summaries, and optional reference URLs. The materials view can import `.md`, `.markdown`, and `.txt` files as text.
+Meeting items are saved under `pixel-team-studio:meeting-room:v1` in browser local storage. The composer accepts ideas, memos, materials, summaries, and optional reference URLs. The materials view can import `.md`, `.markdown`, and `.txt` files as text.
 
 This is device-local prototype storage. Do not use it for confidential documents or as a shared system of record.
 
@@ -23,7 +23,7 @@ This is device-local prototype storage. Do not use it for confidential documents
 A same-page Codex/MCP bridge can submit an item without touching the UI:
 
 ```js
-window.dispatchEvent(new CustomEvent('nestlinker:meeting-item', {
+window.dispatchEvent(new CustomEvent('pixel-team-studio:meeting-item', {
   detail: {
     kind: 'idea',
     source: 'GPT-5',

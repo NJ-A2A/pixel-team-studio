@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions to NestLinker Team Studio are welcome. Keep each change focused, easy to review, and explicit about the problem it solves.
+Contributions to Pixel Team Studio are welcome. Keep each change focused, easy to review, and explicit about the problem it solves.
 
 ## Local development
 

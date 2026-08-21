@@ -1,5 +1,5 @@
 (() => {
-  const HOST_ID = 'nestlinker-office-widget-host'
+  const HOST_ID = 'pixel-team-office-widget-host'
   const existing = document.getElementById(HOST_ID)
   if (existing) {
     existing.remove()
@@ -20,14 +20,14 @@
         iframe{width:100%;height:100%;border:0;background:#fff8ef}
       </style>
       <section class="shell">
-        <header class="bar"><i class="mark"></i><b class="title">NESTLINKER OFFICE</b><button class="open" title="Open separately">↗</button><button class="close" title="Close">×</button></header>
-        <iframe title="NestLinker Office Widget" allow="clipboard-read; clipboard-write"></iframe>
+        <header class="bar"><i class="mark"></i><b class="title">PIXEL TEAM OFFICE</b><button class="open" title="Open separately">↗</button><button class="close" title="Close">×</button></header>
+        <iframe title="Pixel Team Office Widget" allow="clipboard-read; clipboard-write"></iframe>
       </section>`
 
     const frame = shadow.querySelector('iframe')
     frame.src = widgetUrl
     shadow.querySelector('.close').addEventListener('click', () => host.remove())
-    shadow.querySelector('.open').addEventListener('click', () => window.open(widgetUrl, 'NestlinkerOfficeWidget', 'popup=yes,width=460,height=620,resizable=yes'))
+    shadow.querySelector('.open').addEventListener('click', () => window.open(widgetUrl, 'PixelTeamOfficeWidget', 'popup=yes,width=460,height=620,resizable=yes'))
 
     const bar = shadow.querySelector('.bar')
     let drag = null

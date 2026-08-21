@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "NestLinker Office Widget",
+  "name": "Pixel Team Office Widget",
   "version": "0.1.0",
-  "description": "Open the live NestLinker pixel office over any web app or in the browser side panel.",
+  "description": "Open the live Pixel Team Studio pixel office over any web app or in the browser side panel.",
   "permissions": ["activeTab", "contextMenus", "scripting", "sidePanel", "storage"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Toggle NestLinker Office"
+    "default_title": "Toggle Pixel Team Office"
   },
   "side_panel": {
     "default_path": "panel.html"

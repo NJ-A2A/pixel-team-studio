@@ -1,7 +1,7 @@
 import type { ProjectKpi, TeamCalendarEvent, TeamFeedEvent, TeamMember, TeamTask } from './types'
 
 export type LinearSnapshot = {
-  schema: 'nestlinker-linear-snapshot/1'
+  schema: 'pixel-team-linear-snapshot/1'
   generatedAt: string
   team: { id: string; name: string }
   statuses: Array<{ id: string; name: string; type: string }>

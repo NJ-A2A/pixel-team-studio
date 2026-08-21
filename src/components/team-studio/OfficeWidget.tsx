@@ -5,7 +5,9 @@ import { BIRD_ASSIGNMENTS_STORAGE_KEY, BIRD_CATALOG } from '@/lib/team-studio/bi
 import { buildIdentityRotationPlans, rotationTaskByMember } from '@/lib/team-studio/identity-rotation'
 import { adaptLinearSnapshot, type LinearSnapshot, type LinearStudioData } from '@/lib/team-studio/linear-adapter'
 import type { TeamMember } from '@/lib/team-studio/types'
+import { useStudioLocale } from '@/lib/team-studio/i18n'
 
+import { LanguageSwitch } from './LanguageSwitch'
 import { MeetingRoomPanel } from './MeetingRoomPanel'
 import styles from './OfficeWidget.module.css'
 
@@ -30,6 +32,7 @@ function withSavedBirds(members: TeamMember[]) {
 }
 
 export function OfficeWidget() {
+  const { t, zoneName } = useStudioLocale()
   const [data, setData] = useState<LinearStudioData | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -99,26 +102,26 @@ export function OfficeWidget() {
 
   return <main className={styles.widget}>
     <header>
-      <div><span className={styles.liveDot} /><span><b>NESTLINKER OFFICE</b><small>{data?.summary.teamName ?? 'Linear'} · live widget</small></span></div>
-      <nav><button type="button" onClick={() => void load()} aria-label="Refresh Linear snapshot">↻</button><a href="/?source=linear" target="_blank" rel="noreferrer">Open full</a></nav>
+      <div><span className={styles.liveDot} /><span><b>{t('widget.title')}</b><small>{data?.summary.teamName ?? 'Linear'} · {t('widget.live')}</small></span></div>
+      <nav><LanguageSwitch compact /><button type="button" onClick={() => void load()} aria-label={t('action.refresh')}>↻</button><a href="/?source=linear" target="_blank" rel="noreferrer">{t('widget.openFull')}</a></nav>
     </header>
 
     <section className={styles.summary}>
-      <span><b>{data?.summary.activeCount ?? 0}</b> active</span>
-      <span><b>{data?.summary.reviewCount ?? 0}</b> review</span>
-      <span><b>{data?.summary.queueCount ?? 0}</b> queued</span>
-      <span><b>{data?.members.length ?? 0}</b> birds</span>
+      <span><b>{data?.summary.activeCount ?? 0}</b> {t('widget.active')}</span>
+      <span><b>{data?.summary.reviewCount ?? 0}</b> {t('widget.review')}</span>
+      <span><b>{data?.summary.queueCount ?? 0}</b> {t('widget.queued')}</span>
+      <span><b>{data?.members.length ?? 0}</b> {t('widget.birds')}</span>
     </section>
 
     <section className={styles.office} aria-label="Compact live office">
-      <button type="button" className={styles.meetingMini} onClick={() => setMeetingOpen(true)}>MEETING ROOM</button>
+      <button type="button" className={styles.meetingMini} onClick={() => setMeetingOpen(true)}>{t('meeting.room')}</button>
       {widgetZones.map((zone) => {
         const [backgroundX, backgroundY] = ROOM_SLICES[zone.id] ?? [50, 50]
         const zoneTasks = data?.tasks.filter((task) => task.zoneId === zone.id && task.status !== 'done') ?? []
         const peopleHere = activeMembers.filter((member) => activeZoneByMember.get(member.id) === zone.id)
         return <article key={zone.id} style={{ '--room-x': `${backgroundX}%`, '--room-y': `${backgroundY}%` } as CSSProperties}>
-          <div><b>{zone.name}</b><small>{peopleHere.length} here · {zoneTasks.length} tasks</small></div>
-          {zoneTasks.filter((task) => task.status === 'queued').length > 0 && <em>{zoneTasks.filter((task) => task.status === 'queued').length} QUEUED</em>}
+          <div><b>{zoneName(zone.id, zone.name)}</b><small>{t('room.peopleTasks', { people: peopleHere.length, tasks: zoneTasks.length })}</small></div>
+          {zoneTasks.filter((task) => task.status === 'queued').length > 0 && <em>{t('room.queued', { count: zoneTasks.filter((task) => task.status === 'queued').length })}</em>}
         </article>
       })}
       <div className={styles.widgetActors}>{activeMembers.map((member) => {
@@ -127,14 +130,14 @@ export function OfficeWidget() {
         const peers = activeMembers.filter((candidate) => activeZoneByMember.get(candidate.id) === zoneId)
         const peerIndex = peers.findIndex((candidate) => candidate.id === member.id)
         return <span className={styles.widgetActor} data-moving={movingMembers.has(member.id)} key={member.id} style={{ '--actor-left': `${left + (peerIndex - (peers.length - 1) / 2) * 8}%`, '--actor-top': `${top}%` } as CSSProperties}>
-          <i style={{ backgroundImage: `url(${birdAvatar(member.bird)})` }} /><b>{member.name}</b><small>{movingMembers.has(member.id) ? 'RUNNING' : data?.tasks.find((task) => task.id === selections.get(member.id))?.short}</small>
+          <i style={{ backgroundImage: `url(${birdAvatar(member.bird)})` }} /><b>{member.name}</b><small>{movingMembers.has(member.id) ? t('widget.running') : data?.tasks.find((task) => task.id === selections.get(member.id))?.short}</small>
         </span>
       })}</div>
-      {loading && <div className={styles.widgetState}>Loading Linear…</div>}
-      {failed && <div className={styles.widgetState}>Snapshot unavailable <button type="button" onClick={() => void load()}>Retry</button></div>}
+      {loading && <div className={styles.widgetState}>{t('widget.loading')}</div>}
+      {failed && <div className={styles.widgetState}>{t('widget.unavailable')} <button type="button" onClick={() => void load()}>{t('action.retry')}</button></div>}
     </section>
 
-    <footer><span>OFF-DESK</span><div>{idleMembers.map((member) => <span key={member.id} title={member.name} style={{ backgroundImage: `url(${birdAvatar(member.bird)})` }} />)}</div><small>{data ? new Date(data.summary.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} snapshot</small></footer>
-    {meetingOpen && <div className={styles.meetingOverlay} role="dialog" aria-modal="true" aria-label="Meeting room"><section><header><div><b>MEETING ROOM</b><small>Shared ideas, materials, and minutes</small></div><button type="button" onClick={() => setMeetingOpen(false)} aria-label="Close meeting room">×</button></header><div><MeetingRoomPanel /></div></section></div>}
+    <footer><span>{t('widget.offDesk')}</span><div>{idleMembers.map((member) => <span key={member.id} title={member.name} style={{ backgroundImage: `url(${birdAvatar(member.bird)})` }} />)}</div><small>{data ? new Date(data.summary.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} {t('widget.snapshot')}</small></footer>
+    {meetingOpen && <div className={styles.meetingOverlay} role="dialog" aria-modal="true" aria-label={t('meeting.room')}><section><header><div><b>{t('meeting.room')}</b><small>{t('meeting.shared')}</small></div><button type="button" onClick={() => setMeetingOpen(false)} aria-label="Close">×</button></header><div><MeetingRoomPanel /></div></section></div>}
   </main>
 }

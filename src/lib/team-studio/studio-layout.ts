@@ -1,6 +1,6 @@
 import type { TeamZone } from './types'
 
-export const STUDIO_LAYOUT_STORAGE_KEY = 'nestlinker-team-studio:layout:v1'
+export const STUDIO_LAYOUT_STORAGE_KEY = 'pixel-team-studio:layout:v1'
 
 export type StudioLayoutState = {
   version: 1

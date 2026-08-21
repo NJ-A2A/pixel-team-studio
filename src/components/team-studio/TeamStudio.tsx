@@ -31,7 +31,9 @@ import { adaptLinearSnapshot, type LinearSnapshot, type LinearStudioSummary } fr
 import { BIRD_ASSIGNMENTS_STORAGE_KEY, BIRD_CATALOG, type BirdProfile } from '@/lib/team-studio/bird-catalog'
 import { buildIdentityRotationPlans, rotationTaskByMember } from '@/lib/team-studio/identity-rotation'
 import type { ActorInstance, MemberPulse, ProjectKpi, TeamCalendarEvent, TeamMember, TeamTask, TeamZone } from '@/lib/team-studio/types'
+import { useStudioLocale } from '@/lib/team-studio/i18n'
 
+import { LanguageSwitch } from './LanguageSwitch'
 import { MeetingRoomPanel } from './MeetingRoomPanel'
 import { StudioLayoutControls } from './StudioLayoutControls'
 import styles from './TeamStudio.module.css'
@@ -63,7 +65,7 @@ const openOfficeWidget = () => {
   const widgetUrl = new URL(window.location.origin)
   widgetUrl.searchParams.set('view', 'widget')
   widgetUrl.searchParams.set('source', 'linear')
-  window.open(widgetUrl.toString(), 'NestlinkerOfficeWidget', 'popup=yes,width=460,height=620,resizable=yes,scrollbars=no')
+  window.open(widgetUrl.toString(), 'PixelTeamOfficeWidget', 'popup=yes,width=460,height=620,resizable=yes,scrollbars=no')
 }
 
 type BirdAssignments = Record<string, string>
@@ -106,6 +108,17 @@ const loadLayout = () => {
 }
 
 export function TeamStudio() {
+  const { t, locale } = useStudioLocale()
+  const linearLabels = locale === 'zh'
+    ? { team: 'LINEAR 团队', source: '数据源', queue: '待办队列', active: '进行中 / 评审', members: '成员 / 角色', status: '工作室状态', readOnly: '只读私有快照', issues: '个任务', items: '项', working: '人有活跃任务', identities: '个成员身份' }
+    : locale === 'ko'
+      ? { team: 'LINEAR 팀', source: '데이터 소스', queue: '할 일 대기열', active: '진행 / 리뷰', members: '멤버 / 캐릭터', status: '스튜디오 상태', readOnly: '읽기 전용 비공개 스냅샷', issues: '개 이슈', items: '개', working: '명 활성 작업', identities: '명 신원' }
+      : { team: 'LINEAR TEAM', source: 'SOURCE', queue: 'TODO QUEUE', active: 'ACTIVE / REVIEW', members: 'MEMBERS / ACTORS', status: 'STUDIO STATUS', readOnly: 'Read-only private snapshot', issues: ' issues', items: ' items', working: ' with active work', identities: ' identities' }
+  const demoLabels = locale === 'zh'
+    ? { project: '当前项目', branch: '分支', commit: '提交', pr: '草稿 PR', members: '成员 / 角色', status: '工作室状态', online: '人在线', asleep: '人休眠', review: '待评审' }
+    : locale === 'ko'
+      ? { project: '현재 프로젝트', branch: '브랜치', commit: '커밋', pr: '초안 PR', members: '멤버 / 캐릭터', status: '스튜디오 상태', online: '명 온라인', asleep: '명 휴면', review: '리뷰 대기' }
+      : { project: 'CURRENT PROJECT', branch: 'BRANCH', commit: 'COMMIT', pr: 'DRAFT PR', members: 'MEMBERS / ACTORS', status: 'STUDIO STATUS', online: ' online', asleep: ' asleep', review: 'Review pending' }
   const [members, setMembers] = useState(() => applyBirdAssignments(cloneMembers()))
   const [tasks, setTasks] = useState(cloneTasks)
   const [feed, setFeed] = useState(cloneFeed)
@@ -185,7 +198,6 @@ export function TeamStudio() {
   }, [displayActors])
   const mappedMemberCount = actorCountByMember.size
   const extraActors = Math.max(0, actors.length - mappedMemberCount)
-  const hiddenMemberCount = members.length - mappedMemberCount
 
   const loadLinearSnapshot = useCallback(async () => {
     setSourceState('loading')
@@ -530,63 +542,64 @@ export function TeamStudio() {
     <main className={styles.page} id="top">
       <header className={styles.topbar}>
         <a href="#top" className={styles.brand}>
-          <span className={styles.brandMark}>NL</span>
-          <span className={styles.brandCopy}><b>NESTLINKER</b><small>Footprints Studio</small></span>
+          <span className={styles.brandMark}>PT</span>
+          <span className={styles.brandCopy}><b>PIXEL TEAM</b><small>Footprints Studio</small></span>
         </a>
         <nav className={styles.navPills} aria-label="Team Studio navigation">
-          <button type="button" className={styles.active} onClick={scrollToStudio}>Studio map</button>
-          <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>KPI</button>
-          <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Team calendar</button>
+          <button type="button" className={styles.active} onClick={scrollToStudio}>{t('nav.studio')}</button>
+          <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>{t('nav.kpi')}</button>
+          <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>{t('nav.calendar')}</button>
         </nav>
         <div className={styles.topActions}>
           {sourceMode === 'demo' ? <>
-            <button type="button" onClick={() => advanceDemo(15)}>Advance 15 minutes</button>
-            <button type="button" onClick={triggerDemoUpdate}>Simulate update</button>
-            <button type="button" className={styles.primaryAction} onClick={() => void loadLinearSnapshot()}>{sourceState === 'loading' ? 'Loading Linear…' : sourceState === 'error' ? 'Retry Linear snapshot' : 'Use Linear snapshot'}</button>
+            <button type="button" onClick={() => advanceDemo(15)}>{t('action.advance')}</button>
+            <button type="button" onClick={triggerDemoUpdate}>{t('action.simulate')}</button>
+            <button type="button" className={styles.primaryAction} onClick={() => void loadLinearSnapshot()}>{sourceState === 'loading' ? t('action.loadingLinear') : sourceState === 'error' ? t('action.retryLinear') : t('action.useLinear')}</button>
           </> : <>
-            <button type="button" onClick={() => void loadLinearSnapshot()}>Refresh snapshot</button>
-            <button type="button" className={styles.primaryAction} onClick={resetDemo}>Back to demo</button>
+            <button type="button" onClick={() => void loadLinearSnapshot()}>{t('action.refresh')}</button>
+            <button type="button" className={styles.primaryAction} onClick={resetDemo}>{t('action.backDemo')}</button>
           </>}
+          <LanguageSwitch compact />
         </div>
       </header>
 
       <div className={styles.shell}>
         <section className={styles.hero}>
           <div>
-            <span className={styles.eyebrow}>{sourceMode === 'linear' ? 'LINEAR READ-ONLY SNAPSHOT · REAL TEAM STATE' : 'ADAPTIVE TEAM OPERATING SCENE · V3'}</span>
-            <h1>See who is doing what, <em>at a glance.</em></h1>
+            <span className={styles.eyebrow}>{sourceMode === 'linear' ? t('hero.eyebrow') : t('hero.demoEyebrow')}</span>
+            <h1>{sourceMode === 'linear' ? t('hero.titleA') : t('hero.demoTitleA')} <em>{sourceMode === 'linear' ? t('hero.titleB') : t('hero.demoTitleB')}</em></h1>
             <p>{sourceMode === 'linear'
-              ? `Connected to ${linearSummary?.teamName ?? 'Linear'}: current issue states drive bird positions, doorway queues, member progress, project metrics, and due-date calendar entries. Historical arrival times are not available through this snapshot, so queue age is marked left-truncated.`
-              : 'Choose a grid and arrange rooms around your delivery flow. Tasks, KPIs, and member states stay bound to their logical departments while the map remains fully configurable.'}</p>
+              ? t('hero.linear', { team: linearSummary?.teamName ?? 'Linear' })
+              : t('hero.demoDescription')}</p>
           </div>
           <div className={styles.clockCard}>
-            <small>SEOUL STUDIO</small><strong>{clock.time}</strong><span>{clock.date} · {sourceMode === 'linear' ? 'snapshot loaded' : `demo +${offsetMinutes}m`}</span>
+            <small>{t('hero.seoul')}</small><strong>{clock.time}</strong><span>{new Date().toLocaleDateString(locale, { month: 'short', day: '2-digit', weekday: 'short' })} · {sourceMode === 'linear' ? t('hero.loaded') : t('hero.demoTime', { minutes: offsetMinutes })}</span>
           </div>
         </section>
 
         <section className={styles.projectStrip} aria-label="Current project status">
-          <ProjectCell label={sourceMode === 'linear' ? 'LINEAR TEAM' : 'CURRENT PROJECT'} value={sourceMode === 'linear' ? `${linearSummary?.teamName ?? 'Nestlinker'} · ${linearSummary?.issueCount ?? 0} issues` : 'NestLinker Team Studio · Open Source Demo'} />
-          <ProjectCell label={sourceMode === 'linear' ? 'SOURCE' : 'BRANCH'} value={sourceMode === 'linear' ? 'Read-only local snapshot' : 'main · demo-events'} />
-          <ProjectCell label={sourceMode === 'linear' ? 'TODO QUEUE' : 'COMMIT'} value={sourceMode === 'linear' ? `${linearSummary?.queueCount ?? 0} items` : 'local-demo'} />
-          <ProjectCell label={sourceMode === 'linear' ? 'ACTIVE / REVIEW' : 'DRAFT PR'} value={sourceMode === 'linear' ? `${linearSummary?.activeCount ?? 0} / ${linearSummary?.reviewCount ?? 0}` : '#15 · Review pending'} />
-          <ProjectCell label="MEMBERS / ACTORS" value={`${members.length} / ${actors.length}`} />
-          <ProjectCell label="STUDIO STATUS" value={sourceMode === 'linear' ? `${new Set(tasks.filter((task) => ['working', 'reviewing'].includes(task.status)).map((task) => task.assigneeId)).size} with active work · ${members.length} identities` : `${onlineCount} online · ${sleepingCount} asleep`} live />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.team : demoLabels.project} value={sourceMode === 'linear' ? `${linearSummary?.teamName ?? 'Pixel Team'} · ${linearSummary?.issueCount ?? 0}${linearLabels.issues}` : 'Pixel Team Studio · Open Source Demo'} />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.source : demoLabels.branch} value={sourceMode === 'linear' ? linearLabels.readOnly : 'main · demo-events'} />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.queue : demoLabels.commit} value={sourceMode === 'linear' ? `${linearSummary?.queueCount ?? 0}${linearLabels.items}` : 'local-demo'} />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.active : demoLabels.pr} value={sourceMode === 'linear' ? `${linearSummary?.activeCount ?? 0} / ${linearSummary?.reviewCount ?? 0}` : `#15 · ${demoLabels.review}`} />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.members : demoLabels.members} value={`${members.length} / ${actors.length}`} />
+          <ProjectCell label={sourceMode === 'linear' ? linearLabels.status : demoLabels.status} value={sourceMode === 'linear' ? `${new Set(tasks.filter((task) => ['working', 'reviewing'].includes(task.status)).map((task) => task.assigneeId)).size}${linearLabels.working} · ${members.length}${linearLabels.identities}` : `${onlineCount}${demoLabels.online} · ${sleepingCount}${demoLabels.asleep}`} live />
         </section>
 
         <section className={styles.dashboard} ref={studioRef} id="studio">
           <article className={styles.studioCard}>
             <header className={styles.studioHead}>
-              <div><h2>NestLinker Configurable 2D Studio</h2><p>{sourceMode === 'linear' ? 'Real Linear current state · one bird per person · active task shares rotate that bird through every office where they work.' : 'Choose a grid and reorder rooms. Outside edit mode, click a character or room for details.'}</p></div>
+              <div><h2>{t('studio.title')}</h2><p>{sourceMode === 'linear' ? t('studio.linear') : t('studio.demoDescription')}</p></div>
               <div className={styles.legend} aria-label="Character status legend">
-                <span data-level="turbo"><i />Rapid updates</span>
-                <span data-level="steady"><i />Steady progress</span>
-                <span data-level="slack"><i />Low activity</span>
-                <span data-level="waiting"><i />Waiting or blocked</span>
-                <span data-level="sleep"><i />Asleep</span>
+                <span data-level="turbo"><i />{t('studio.rapid')}</span>
+                <span data-level="steady"><i />{t('studio.steady')}</span>
+                <span data-level="slack"><i />{t('studio.low')}</span>
+                <span data-level="waiting"><i />{t('studio.waiting')}</span>
+                <span data-level="sleep"><i />{t('studio.asleep')}</span>
               </div>
             </header>
             <div className={styles.mapTools}>
-              <b>Layout {layout.rows}×{layout.columns} · {layoutScene.zones.length} placed · {unplacedZones.length} unplaced · {actors.length} actors · {rotatingActorIds.size} rotating · +{extraActors} clones{hiddenMemberCount ? ` · ${hiddenMemberCount} members off-map` : ''}</b>
+              <b>{sourceMode === 'linear' ? t('studio.layout', { rows: layout.rows, columns: layout.columns, placed: layoutScene.zones.length, unplaced: unplacedZones.length, actors: actors.length, rotating: rotatingActorIds.size }) : t('studio.demoLayout', { rows: layout.rows, columns: layout.columns, placed: layoutScene.zones.length, unplaced: unplacedZones.length, actors: actors.length, rotating: rotatingActorIds.size, clones: extraActors })}</b>
               {sourceMode === 'demo' && <>
                 <button type="button" className={styles.flowAction} data-kind="forward" onClick={simulateForwardTransit}>Trigger forward move</button>
                 <button type="button" className={styles.flowAction} data-kind="rollback" onClick={simulateRollbackTransit}>Trigger review rollback</button>
@@ -595,12 +608,12 @@ export function TeamStudio() {
               <button type="button" className={styles.layoutEditButton} data-active={layoutEditing} onClick={() => {
                 setLayoutEditing((current) => !current)
                 setSelectedZoneId(null)
-              }}>{layoutEditing ? 'Close room editor' : 'Edit room layout'}</button>
-              <button type="button" onClick={sourceMode === 'linear' ? () => void loadLinearSnapshot() : resetDemo}>{sourceMode === 'linear' ? 'Reload Linear snapshot' : 'Reset demo'}</button>
-              <button type="button" className={styles.castingAction} onClick={() => setDrawer({ type: 'casting' })}>Choose team birds</button>
-              <button type="button" className={styles.widgetAction} onClick={openOfficeWidget}>Open floating office</button>
-              <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>Member progress</button>
-              <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Team calendar</button>
+              }}>{layoutEditing ? t('action.closeEdit') : t('action.edit')}</button>
+              <button type="button" onClick={sourceMode === 'linear' ? () => void loadLinearSnapshot() : resetDemo}>{sourceMode === 'linear' ? t('action.reload') : t('action.resetDemo')}</button>
+              <button type="button" className={styles.castingAction} onClick={() => setDrawer({ type: 'casting' })}>{t('action.birds')}</button>
+              <button type="button" className={styles.widgetAction} onClick={openOfficeWidget}>{t('action.widget')}</button>
+              <button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>{t('action.progress')}</button>
+              <button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>{t('nav.calendar')}</button>
             </div>
             {layoutEditing && <div className={styles.layoutEditorPage}>
               <StudioLayoutControls
@@ -683,7 +696,7 @@ export function TeamStudio() {
 
           <aside className={styles.sidebar}>
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>{sourceMode === 'linear' ? 'Linear workload' : 'Team pulse'}</h3><small>{sourceMode === 'linear' ? 'Current state, not presence or productivity' : 'Sorted by recency and event density'}</small></div><button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>All KPIs</button></header>
+              <header className={styles.sideHead}><div><h3>{sourceMode === 'linear' ? t('linear.workload') : t('demo.teamPulse')}</h3><small>{sourceMode === 'linear' ? t('linear.workloadHelp') : t('demo.teamPulseHelp')}</small></div><button type="button" onClick={() => setDrawer({ type: 'kpi', tab: 'people' })}>{sourceMode === 'linear' ? t('linear.allKpis') : t('demo.allKpis')}</button></header>
               {sourceMode === 'linear' && linearSummary ? <LinearStatusSummary summary={linearSummary} /> : <PulseSummary pulses={[...pulses.values()]} />}
               <div className={styles.pulseList}>
                 {[...members].sort((a, b) => (pulses.get(a.id)?.age ?? 0) - (pulses.get(b.id)?.age ?? 0)).map((member) => {
@@ -695,8 +708,8 @@ export function TeamStudio() {
                   return (
                     <button type="button" className={styles.pulseRow} key={member.id} onClick={() => setDrawer({ type: 'member', id: member.id })}>
                       <PixelBird bird={member.bird} size={48} />
-                      <span className={styles.pulseCopy}><b>{member.name}</b><small>{sourceMode === 'linear' ? `${memberActive} active · ${memberQueued} queued · ${formatCount(memberActorCount, 'identity bird')}` : `Updated ${shortAge(pulse.age)} · ${formatCount(memberActorCount, 'map actor')}`}</small></span>
-                      <span className={styles.pulseScore}><b>{sourceMode === 'linear' ? `${member.kpi}%` : pulse.waiting ? 'WAIT' : pulse.sleeping ? 'SLEEP' : pulse.busyScore}</b><small>{sourceMode === 'linear' ? 'status proxy' : pulse.slackScore === null ? 'slack excluded' : `slack ${pulse.slackScore}`}</small></span>
+                      <span className={styles.pulseCopy}><b>{member.name}</b><small>{sourceMode === 'linear' ? t('linear.activeQueued', { active: memberActive, queued: memberQueued, birds: memberActorCount }) : `Updated ${shortAge(pulse.age)} · ${formatCount(memberActorCount, 'map actor')}`}</small></span>
+                      <span className={styles.pulseScore}><b>{sourceMode === 'linear' ? `${member.kpi}%` : pulse.waiting ? 'WAIT' : pulse.sleeping ? 'SLEEP' : pulse.busyScore}</b><small>{sourceMode === 'linear' ? t('linear.statusProxy') : pulse.slackScore === null ? 'slack excluded' : `slack ${pulse.slackScore}`}</small></span>
                     </button>
                   )
                 })}
@@ -704,14 +717,14 @@ export function TeamStudio() {
             </section>
 
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>State rules</h3><small>Every position has a data source</small></div>{sourceMode === 'demo' && <button type="button" onClick={cycleSleepThreshold}>{sleepThreshold}m</button>}</header>
+              <header className={styles.sideHead}><div><h3>{sourceMode === 'linear' ? t('linear.rules') : t('demo.stateRules')}</h3><small>{sourceMode === 'linear' ? t('linear.rulesHelp') : t('demo.stateRulesHelp')}</small></div>{sourceMode === 'demo' && <button type="button" onClick={cycleSleepThreshold}>{sleepThreshold}m</button>}</header>
               <div className={styles.ruleList}>
                 {sourceMode === 'linear' ? <>
-                  <Rule title="Identity">Exactly one bird per Linear member. Members with active work in multiple offices rotate between them instead of cloning.</Rule>
-                  <Rule title="Time share">Office dwell time follows active task weight. Without estimates, each active Linear issue contributes one equal share.</Rule>
-                  <Rule title="Queue pile">Todo height is the current item count. Cracked boxes mean arrival time is unknown at first connection.</Rule>
-                  <Rule title="Position">In Progress maps to State & Data; In Review maps to QA. Several members in one office are all rendered in separate seats.</Rule>
-                  <Rule title="KPI proxy">Progress is a transparent status-weighted snapshot, not an employee performance score.</Rule>
+                  <Rule title={t('linear.identity')}>{t('linear.identityRule')}</Rule>
+                  <Rule title={t('linear.timeShare')}>{t('linear.timeRule')}</Rule>
+                  <Rule title={t('linear.queuePile')}>{t('linear.queueRule')}</Rule>
+                  <Rule title={t('linear.position')}>{t('linear.positionRule')}</Rule>
+                  <Rule title={t('linear.kpiProxy')}>{t('linear.kpiRule')}</Rule>
                 </> : <>
                   <Rule title="Update density">Recent updates, more events, and parallel tasks increase the activity signal.</Rule>
                   <Rule title="Slack score">Inverse of the busy score; user, PR, and external waits are excluded.</Rule>
@@ -722,7 +735,7 @@ export function TeamStudio() {
             </section>
 
             <section className={styles.sideCard}>
-              <header className={styles.sideHead}><div><h3>{sourceMode === 'linear' ? 'Linear activity' : 'Live activity'}</h3><small>{sourceMode === 'linear' ? `Snapshot ${linearSummary ? new Date(linearSummary.generatedAt).toLocaleString() : ''}` : `Demo time +${offsetMinutes} minutes`}</small></div><button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>Calendar</button></header>
+              <header className={styles.sideHead}><div><h3>{sourceMode === 'linear' ? t('linear.activity') : t('demo.liveActivity')}</h3><small>{sourceMode === 'linear' ? `${t('widget.snapshot')} ${linearSummary ? new Date(linearSummary.generatedAt).toLocaleString(locale) : ''}` : t('hero.demoTime', { minutes: offsetMinutes })}</small></div><button type="button" onClick={() => setDrawer({ type: 'calendar', memberId: 'all' })}>{sourceMode === 'linear' ? t('linear.calendar') : t('demo.calendar')}</button></header>
               <div className={styles.feed}>
                 {feed.slice(0, 8).map((event) => <div className={styles.feedItem} key={event.id}><time>{shortAge(event.minutes + offsetMinutes)}</time><span>{event.text}</span></div>)}
               </div>
@@ -731,8 +744,8 @@ export function TeamStudio() {
         </section>
 
         <footer className={styles.footerNote}>
-          <span>{sourceMode === 'linear' ? 'Linear current-state snapshot is active; no emails, descriptions, comments, or tokens are stored.' : 'Interactive demo data is active; state scoring, task clones, cross-zone support, and sleep logic are fully functional.'}</span>
-          <span>{sourceMode === 'linear' ? 'CURRENT STATE · HISTORY/WEBHOOK NOT YET CONNECTED' : 'READY FOR CODEX MCP · HOOKS · GITHUB · CALENDAR'}</span>
+          <span>{sourceMode === 'linear' ? t('linear.footer') : t('demo.footer')}</span>
+          <span>{sourceMode === 'linear' ? t('linear.footerState') : t('demo.footerState')}</span>
         </footer>
       </div>
 
@@ -812,7 +825,8 @@ function PixelBird({ bird, size, animation = 'idle', facing = 1, label }: {
 }
 
 function MeetingRoomDock({ onOpen }: { onOpen: () => void }) {
-  return <button type="button" className={styles.meetingRoomDock} onClick={onOpen}>MEETING ROOM</button>
+  const { t } = useStudioLocale()
+  return <button type="button" className={styles.meetingRoomDock} onClick={onOpen}>{t('meeting.room')}</button>
 }
 
 function ProjectCell({ label, value, live = false }: { label: string; value: string; live?: boolean }) {
@@ -832,7 +846,8 @@ function PulseSummary({ pulses }: { pulses: MemberPulse[] }) {
 }
 
 function LinearStatusSummary({ summary }: { summary: LinearStudioSummary }) {
-  return <div className={styles.pulseSummary}><div><b>{summary.queueCount}</b><span>Todo</span></div><div><b>{summary.activeCount - summary.reviewCount}</b><span>In progress</span></div><div><b>{summary.reviewCount}</b><span>In review</span></div><div><b>{summary.doneCount}</b><span>Done</span></div></div>
+  const { t } = useStudioLocale()
+  return <div className={styles.pulseSummary}><div><b>{summary.queueCount}</b><span>{t('linear.todo')}</span></div><div><b>{summary.activeCount - summary.reviewCount}</b><span>{t('linear.inProgress')}</span></div><div><b>{summary.reviewCount}</b><span>{t('linear.inReview')}</span></div><div><b>{summary.doneCount}</b><span>{t('linear.done')}</span></div></div>
 }
 
 function WorkZone({ slot, zone, members, tasks, actors, linearMode, editing, selected, onSelect }: {
@@ -846,6 +861,8 @@ function WorkZone({ slot, zone, members, tasks, actors, linearMode, editing, sel
   selected: boolean
   onSelect: () => void
 }) {
+  const { t, zoneName } = useStudioLocale()
+  const displayZoneName = zoneName(zone.id, zone.name)
   const owner = members.find((member) => member.id === zone.ownerId) ?? members.find((member) => member.assignedZone === zone.id)
   const zoneTasks = tasks.filter((task) => task.zoneId === zone.id && task.status !== 'done')
   const queuedTasks = zoneTasks.filter((task) => task.status === 'queued')
@@ -868,23 +885,23 @@ function WorkZone({ slot, zone, members, tasks, actors, linearMode, editing, sel
       data-selected={selected}
       style={zoneStyle}
       onClick={onSelect}
-      aria-label={editing ? `Move ${zone.name}, currently in slot ${slot.index + 1}` : `View ${zone.name}`}
+      aria-label={displayZoneName}
     >
       <span className={styles.zoneSlot}>#{slot.index + 1} · {slot.row + 1}-{slot.column + 1}{editing ? ' · click to swap' : ''}</span>
       <span className={styles.zoneHead}>
         <span className={styles.ownerPlate}>
           {owner && <PixelBird bird={owner.bird} size={42} />}
-          <span><b>{zone.name}</b><small>{owner ? `Owner · ${owner.name}` : 'Shared facility'}</small></span>
+          <span><b>{displayZoneName}</b><small>{owner ? t('room.owner', { name: owner.name }) : t('room.shared')}</small></span>
         </span>
-        <span className={styles.zoneProgress}><b>{owner ? `${progress}%` : 'FACILITY'}</b><small>{owner ? `${formatCount(workers.size, 'person', 'people')} / ${formatCount(zoneTasks.length, 'task')}` : 'Shared area'}</small></span>
+        <span className={styles.zoneProgress}><b>{owner ? `${progress}%` : t('room.facility')}</b><small>{owner ? t('room.peopleTasks', { people: workers.size, tasks: zoneTasks.length }) : t('room.sharedArea')}</small></span>
       </span>
       {linearMode && queuedTasks.length > 0 && <span className={styles.queuePile}>
         <span className={styles.queueBoxes}>{Array.from({ length: Math.min(queuedTasks.length, 8) }, (_, index) => <i key={index} />)}</span>
-        <b>{queuedTasks.length} QUEUED</b>
-        <small>ARRIVAL UNKNOWN · LEFT-TRUNCATED</small>
+        <b>{t('room.queued', { count: queuedTasks.length })}</b>
+        <small>{t('room.arrivalUnknown')}</small>
       </span>}
       {workerMembers.length > 1 && <span className={styles.zoneRoster}>
-        <small>{workerMembers.length} PEOPLE HERE</small>
+        <small>{t('room.peopleHere', { count: workerMembers.length })}</small>
         <span>{workerMembers.map((member) => <span key={member.id} title={member.name}><PixelBird bird={member.bird} size={28} /><b>{member.name}</b></span>)}</span>
       </span>}
     </button>
@@ -1013,19 +1030,20 @@ function Drawer({ drawer, members, tasks, actors, pulses, projectKpis, calendarE
   onClose: () => void
   onNavigate: (state: Exclude<DrawerState, null>) => void
 }) {
+  const { t, zoneName } = useStudioLocale()
   const title = drawer.type === 'member'
-    ? members.find((member) => member.id === drawer.id)?.name ?? 'Member details'
+    ? members.find((member) => member.id === drawer.id)?.name ?? t('drawer.member')
     : drawer.type === 'zone'
-      ? TEAM_ZONES.find((zone) => zone.id === drawer.id)?.name ?? 'Zone details'
-      : drawer.type === 'kpi' ? 'Team KPIs'
-        : drawer.type === 'calendar' ? 'Team calendar'
-          : drawer.type === 'meeting' ? 'Meeting room' : 'Team bird casting'
-  const subtitle = drawer.type === 'member' ? sourceMode === 'linear' ? 'Linear tasks, transparent status-weighted progress, and due dates' : 'Tasks, clones, personal metrics, and schedule'
-    : drawer.type === 'zone' ? 'Fixed owner, current executors, and zone tasks'
-      : drawer.type === 'kpi' ? 'Every progress value comes from an explainable task state'
-        : drawer.type === 'calendar' ? 'Filter by member; select an event to open its responsibility zone'
-          : drawer.type === 'meeting' ? 'Brainstorm inbox, Markdown materials, shared memos, and meeting summaries'
-            : 'Play a short work-style test or choose any bird manually'
+      ? (() => { const zone = TEAM_ZONES.find((item) => item.id === drawer.id); return zone ? zoneName(zone.id, zone.name) : t('drawer.zone') })()
+      : drawer.type === 'kpi' ? t('drawer.kpis')
+        : drawer.type === 'calendar' ? t('drawer.calendar')
+          : drawer.type === 'meeting' ? t('meeting.room') : t('drawer.birds')
+  const subtitle = drawer.type === 'member' ? sourceMode === 'linear' ? t('drawer.memberHelp') : 'Tasks, clones, personal metrics, and schedule'
+    : drawer.type === 'zone' ? t('drawer.zoneHelp')
+      : drawer.type === 'kpi' ? t('drawer.kpiHelp')
+        : drawer.type === 'calendar' ? t('drawer.calendarHelp')
+          : drawer.type === 'meeting' ? t('drawer.meetingHelp')
+            : t('drawer.birdsHelp')
 
   function closeFromBackdrop(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) onClose()

@@ -1,10 +1,10 @@
-const MENU_ID = 'nestlinker-office-side-panel'
+const MENU_ID = 'pixel-team-office-side-panel'
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: 'Open NestLinker Office in side panel',
+      title: 'Open Pixel Team Office in side panel',
       contexts: ['page'],
     })
   })

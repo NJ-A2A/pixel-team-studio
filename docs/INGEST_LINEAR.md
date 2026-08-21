@@ -47,7 +47,7 @@ This makes the queue/work split structurally available in Linear. It is still a 
 - Use PKCE and a CSRF `state` value in the browser authorization flow.
 - Store encrypted refresh tokens server-side and support token revocation.
 
-The `read` scope technically permits reading issue content visible to the authorizing principal. The integration therefore must say **"NestLinker queries and stores only status, assignment identifiers, and timestamps"**, not "the token cannot read titles or descriptions." Do not select, log, or persist titles, descriptions, comments, or member names.
+The `read` scope technically permits reading issue content visible to the authorizing principal. The integration therefore must say **"Pixel Team Studio queries and stores only status, assignment identifiers, and timestamps"**, not "the token cannot read titles or descriptions." Do not select, log, or persist titles, descriptions, comments, or member names.
 
 ## Stage 1: interactive structure discovery
 

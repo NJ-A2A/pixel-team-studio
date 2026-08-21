@@ -1,0 +1,4 @@
+.switcher { display:inline-flex; flex:none; gap:2px; padding:3px; border:1px solid rgb(21 42 34 / 45%); border-radius:999px; background:rgb(255 255 255 / 86%); }
+.switcher button { min-height:28px!important; padding:5px 9px!important; border:0!important; border-radius:999px!important; color:#152a22!important; background:transparent!important; box-shadow:none!important; font:850 9px/1 Inter,Arial,"PingFang SC","Apple SD Gothic Neo",sans-serif!important; white-space:nowrap; }
+.switcher button[data-active='true'] { color:#fff!important; background:#152a22!important; }
+.switcher[data-compact='true'] button { min-height:23px!important; padding:4px 7px!important; font-size:8px!important; }

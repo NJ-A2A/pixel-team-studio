@@ -1,13 +1,15 @@
-# NestLinker Team Studio
+# Pixel Team Studio
 
 > An open-source pixel office that makes AI-agent and team work visible: tasks, positions, KPIs, blockers, and schedules at a glance.
 
-[![CI](https://github.com/NJforYunman/nestlinker-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJforYunman/nestlinker-team-studio/actions/workflows/ci.yml)
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+[![CI](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/NJ-A2A/pixel-team-studio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-pink.svg)](LICENSE)
 
 ![Pixel office map](docs/office-map.png)
 
-NestLinker Team Studio turns an abstract workflow into a living 2D office. The office is not tied to a fixed department map: choose a `3×3`, `2×4`, `3×2`, `1×8`, or custom grid, then arrange rooms around your delivery process.
+Pixel Team Studio turns an abstract workflow into a living 2D office. The office is not tied to a fixed department map: choose a `3×3`, `2×4`, `3×2`, `1×8`, or custom grid, then arrange rooms around your delivery process.
 
 Position is data. A member with work in one office stays there. A member with active work across several offices keeps one identity bird and rotates through those rooms; active task weight controls dwell time, while corridor transit is accounted separately.
 
@@ -35,14 +37,15 @@ Position is data. A member with work in one office stays there. A member with ac
 - Play-first onboarding with progressive Linear connection and visible measured/estimated/no-data provenance
 - Queue piles encode count and oldest wait separately; business-time flow efficiency and backlog-area rules are documented
 - A unified state layer ready for Codex MCP, Hooks, GitHub webhooks, and calendar events
+- Built-in Chinese, Korean, and English UI switching, shared by the full studio, compact widget, layout editor, and meeting room
 
 ## Quick start
 
 Requires Node.js 22+ and pnpm.
 
 ```bash
-git clone https://github.com/NJforYunman/nestlinker-team-studio.git
-cd nestlinker-team-studio
+git clone https://github.com/NJ-A2A/pixel-team-studio.git
+cd pixel-team-studio
 pnpm install
 pnpm dev
 ```
@@ -108,4 +111,4 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 NJ_A2A and NestLinker contributors.
+[MIT](LICENSE) © 2026 NJ_A2A contributors.

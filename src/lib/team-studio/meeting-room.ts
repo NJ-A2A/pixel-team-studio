@@ -15,8 +15,8 @@ export type MeetingItem = {
 
 export type MeetingItemDraft = Pick<MeetingItem, 'kind' | 'source' | 'title' | 'content'> & Partial<Pick<MeetingItem, 'stage' | 'url' | 'fileName'>>
 
-export const MEETING_ROOM_STORAGE_KEY = 'nestlinker-team-studio:meeting-room:v1'
-export const MEETING_ROOM_EVENT = 'nestlinker:meeting-item'
+export const MEETING_ROOM_STORAGE_KEY = 'pixel-team-studio:meeting-room:v1'
+export const MEETING_ROOM_EVENT = 'pixel-team-studio:meeting-item'
 
 export const INITIAL_MEETING_ITEMS: MeetingItem[] = [
   {

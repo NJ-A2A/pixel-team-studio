@@ -90,7 +90,7 @@ test('new bird kit exposes 17 species and seven 32-frame poses', () => {
   assert.match(styles, /steps\(6, end\)/)
   assert.doesNotMatch(component, /POSE SILHOUETTE QA/)
   assert.doesNotMatch(component, /ALL 32 FRAMES/)
-  assert.match(component, /Choose team birds/)
+  assert.match(component, /action\.birds/)
   assert.match(component, /Three-question bird test/)
   assert.match(styles, /\.mapStage/)
   assert.match(styles, /scale\(var\(--map-scale/)
@@ -115,8 +115,8 @@ test('workflow templates and row-column room selectors are exposed', () => {
   const controls = readFileSync('src/components/team-studio/StudioLayoutControls.tsx', 'utf8')
   const layoutModule = readFileSync('src/lib/team-studio/studio-layout.ts', 'utf8')
 
-  assert.match(controls, /Workflow template/)
-  assert.match(controls, /ROOMS BY ROW \/ COLUMN/)
+  assert.match(controls, /layout\.workflow/)
+  assert.match(controls, /layout\.matrix/)
   assert.match(controls, /R\{row\} · C\{column\}/)
   assert.match(layoutModule, /product-delivery/)
   assert.match(layoutModule, /software-sprint/)
@@ -161,7 +161,7 @@ test('multiple members in one office receive separate visible seats', () => {
   assert.equal(actors.length, 2)
   assert.ok(actors.every((actor) => actor.zone.id === 'qa'))
   assert.notDeepEqual([actors[0].x, actors[0].y], [actors[1].x, actors[1].y])
-  assert.match(readFileSync('src/components/team-studio/TeamStudio.tsx', 'utf8'), /PEOPLE HERE/)
+  assert.match(readFileSync('src/components/team-studio/TeamStudio.tsx', 'utf8'), /room\.peopleHere/)
 })
 
 test('an unplaced department can replace any room without changing logical task data', () => {
@@ -272,7 +272,7 @@ test('Linear ingestion guide records verified schema and least-privilege limits'
   const guide = readFileSync('docs/INGEST_LINEAR.md', 'utf8')
 
   assert.match(guide, /GraphQL type is `String!`, \*\*not an enum\*\*/)
-  assert.match(guide, /must say \*\*"NestLinker queries and stores only status/)
+  assert.match(guide, /must say \*\*"Pixel Team Studio queries and stores only status/)
   assert.match(guide, /plain `read` token cannot provision them itself/)
   assert.match(guide, /nested connection cannot be resumed independently/)
   assert.match(guide, /Missing data must never look like an empty, healthy queue/)
@@ -280,9 +280,9 @@ test('Linear ingestion guide records verified schema and least-privilege limits'
 
 test('Linear snapshots map status to queues, work rooms and one identity bird', () => {
   const snapshot: LinearSnapshot = {
-    schema: 'nestlinker-linear-snapshot/1',
+    schema: 'pixel-team-linear-snapshot/1',
     generatedAt: '2026-08-20T06:15:00.000Z',
-    team: { id: 'team-1', name: 'Nestlinker' },
+    team: { id: 'team-1', name: 'Pixel Team' },
     statuses: [
       { id: 'todo', name: 'Todo', type: 'unstarted' },
       { id: 'doing', name: 'In Progress', type: 'started' },
@@ -339,13 +339,31 @@ test('meeting room keeps AI ideas behind human review and accepts Markdown mater
   assert.ok(INITIAL_MEETING_ITEMS.some((item) => item.source === 'GPT-5' && item.stage === 'inbox'))
   assert.ok(INITIAL_MEETING_ITEMS.some((item) => item.kind === 'material' && item.fileName?.endsWith('.md')))
   assert.ok(INITIAL_MEETING_ITEMS.some((item) => item.kind === 'minutes'))
-  assert.equal(MEETING_ROOM_EVENT, 'nestlinker:meeting-item')
+  assert.equal(MEETING_ROOM_EVENT, 'pixel-team-studio:meeting-item')
   assert.equal(isMeetingItemDraft({ kind: 'idea', source: 'Codex', title: 'Idea', content: 'Context' }), true)
   assert.equal(isMeetingItemDraft({ kind: 'idea', source: 'Codex', title: 'Missing content' }), false)
   assert.match(studio, /MeetingRoomDock/)
   assert.match(widget, /meetingMini/)
-  assert.match(panel, /Send to board/)
-  assert.match(panel, /Import \.md \/ \.txt/)
-  assert.match(panel, /Create summary draft/)
+  assert.match(panel, /meeting\.sendBoard/)
+  assert.match(panel, /meeting\.import/)
+  assert.match(panel, /meeting\.createSummary/)
   assert.match(guide, /AI suggestions never become decisions automatically/)
+})
+
+test('public studio is generic and ships English, Chinese, and Korean UI copy', () => {
+  const files = [
+    'README.md',
+    'README.zh-CN.md',
+    'index.html',
+    'package.json',
+    'src/components/team-studio/TeamStudio.tsx',
+    'src/lib/team-studio/i18n.tsx',
+    'browser-extension/manifest.json',
+  ].map((file) => readFileSync(file, 'utf8')).join('\n')
+
+  assert.doesNotMatch(files, /nestlinker/i)
+  assert.match(files, /Pixel Team Studio/)
+  assert.match(files, /一眼看清每个人/)
+  assert.match(files, /한눈에 확인하세요/)
+  assert.match(files, /StudioLocaleProvider/)
 })

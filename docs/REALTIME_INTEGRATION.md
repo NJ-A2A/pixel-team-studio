@@ -49,7 +49,7 @@ Example:
 ```json
 {
   "id": "evt_01",
-  "projectId": "nestlinker",
+  "projectId": "pixel-team-studio",
   "memberId": "frontend",
   "type": "agent.testing",
   "taskId": "team-studio-realtime",
